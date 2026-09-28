@@ -460,6 +460,19 @@ namespace QuantLib {
         Real localVariance(Real k, Time t) const;
         //! σ_loc(K, T) = √localVariance(k, t).
         Real localVol(Real k, Time t) const;
+        //! localVariance(k[i], t) for i < n, written to out[i].
+        /*! The per-time work (pillar weights, the pillar interval whose
+            slope is ∂w/∂T, the slice scales) is done once for all points,
+            and the total variance of each bracketing pillar is shared
+            between w and ∂w/∂T.  Values are identical to localVariance().
+            Where localVariance() would throw on the point (non-positive
+            total variance or Dupire denominator) or localVol() would
+            reject it (negative local variance), out[i] is Null<Real>()
+            instead; the return value is the number of such points.  A
+            single-pillar surface has no ∂w/∂T, so every point is Null.
+            k and out may be the same array. */
+        Size localVarianceSlice(Time t, const Real* k, Size n,
+                                Real* out) const;
         //@}
 
         //! \name Mutators

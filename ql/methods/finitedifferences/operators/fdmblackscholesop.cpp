@@ -25,6 +25,7 @@
 #include <ql/methods/finitedifferences/operators/fdmblackscholesop.hpp>
 #include <ql/methods/finitedifferences/operators/fdmlinearoplayout.hpp>
 #include <ql/methods/finitedifferences/operators/secondderivativeop.hpp>
+#include <ql/utilities/null.hpp>
 #include <utility>
 
 namespace QuantLib {
@@ -54,19 +55,21 @@ namespace QuantLib {
 
         if (localVol_ != nullptr) {
             Array v(mesher_->layout()->size());
-            for (const auto& iter : *mesher_->layout()) {
-                const Size i = iter.index();
-
-                if (illegalLocalVolOverwrite_ < 0.0) {
+            if (illegalLocalVolOverwrite_ < 0.0) {
+                for (const auto& iter : *mesher_->layout()) {
+                    const Size i = iter.index();
                     v[i] = squared(localVol_->localVol(0.5*(t1+t2), x_[i], true));
                 }
-                else {
-                    try {
-                        v[i] = squared(localVol_->localVol(0.5*(t1+t2), x_[i], true));
-                    } catch (Error&) {
-                        v[i] = squared(illegalLocalVolOverwrite_);
-                    }
-                }
+            }
+            else {
+                // One call per step lets the surface share its per-time
+                // work across nodes, and reports illegal points instead
+                // of throwing one exception per node.
+                illegalLocalVolCount_ +=
+                    localVol_->localVolSlice(0.5*(t1+t2), x_, v);
+                for (Size i = 0; i < v.size(); ++i)
+                    v[i] = squared((v[i] == Null<Real>())
+                                   ? illegalLocalVolOverwrite_ : v[i]);
             }
 
             if (quantoHelper_ != nullptr) {

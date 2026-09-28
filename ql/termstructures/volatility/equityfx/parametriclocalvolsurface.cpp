@@ -19,6 +19,7 @@
 
 #include <ql/termstructures/volatility/equityfx/parametriclocalvolsurface.hpp>
 #include <ql/errors.hpp>
+#include <ql/utilities/null.hpp>
 #include <cmath>
 #include <utility>
 
@@ -87,6 +88,28 @@ namespace QuantLib {
         Real fwd = spot_->value() * dq / dr;
         Real k = std::log(underlyingLevel / fwd);
         return blackSurface_->localVol(k, t);
+    }
+
+    Size ParametricLocalVolSurface::localVolSlice(
+            Time t, const Array& underlyingLevels, Array& out) const {
+        const Size n = underlyingLevels.size();
+        QL_REQUIRE(out.size() == n,
+                   "localVolSlice: output size " << out.size()
+                   << " != input size " << n);
+        checkRange(t, true);
+        // localVolImpl() for every point, with the forward taken once.
+        if (t < 1e-14) t = 1e-14;
+        DiscountFactor dr = riskFreeRate_->discount(t, true);
+        DiscountFactor dq = dividendYield_->discount(t, true);
+        Real fwd = spot_->value() * dq / dr;
+        for (Size j = 0; j < n; ++j)
+            out[j] = std::log(underlyingLevels[j] / fwd);
+        Size nIllegal =
+            blackSurface_->localVarianceSlice(t, out.begin(), n, out.begin());
+        for (Size j = 0; j < n; ++j)
+            if (out[j] != Null<Real>())
+                out[j] = std::sqrt(out[j]);
+        return nIllegal;
     }
 
     std::vector<Volatility> ParametricLocalVolSurface::localVolGrid(

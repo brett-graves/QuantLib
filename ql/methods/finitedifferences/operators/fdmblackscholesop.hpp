@@ -57,6 +57,10 @@ namespace QuantLib {
 
         std::vector<SparseMatrix> toMatrixDecomp() const override;
 
+        //! Local-vol points replaced by illegalLocalVolOverwrite so far,
+        //! summed over every setTime() call.
+        Size illegalLocalVolCount() const { return illegalLocalVolCount_; }
+
       private:
         const ext::shared_ptr<FdmMesher> mesher_;
         const ext::shared_ptr<YieldTermStructure> rTS_, qTS_;
@@ -70,6 +74,7 @@ namespace QuantLib {
         const Real illegalLocalVolOverwrite_;
         const Size direction_;
         const ext::shared_ptr<FdmQuantoHelper> quantoHelper_;
+        Size illegalLocalVolCount_ = 0;
     };
 }
 

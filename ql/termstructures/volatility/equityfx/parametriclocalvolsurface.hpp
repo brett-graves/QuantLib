@@ -88,6 +88,13 @@ namespace QuantLib {
             const std::vector<Time>& times,
             const std::vector<Real>& underlyingLevels) const;
 
+        /*! One FD time step's worth of local vols: the forward is
+            computed once and the Black surface's localVarianceSlice()
+            does the rest.  Same values as localVol(t, S, true). */
+        Size localVolSlice(Time t,
+                           const Array& underlyingLevels,
+                           Array& out) const override;
+
       protected:
         Volatility localVolImpl(Time t, Real underlyingLevel) const override;
 

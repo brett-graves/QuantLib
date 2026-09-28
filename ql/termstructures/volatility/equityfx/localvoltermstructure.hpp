@@ -26,6 +26,7 @@
 #define quantlib_local_vol_term_structures_hpp
 
 #include <ql/termstructures/voltermstructure.hpp>
+#include <ql/math/array.hpp>
 #include <ql/patterns/visitor.hpp>
 
 namespace QuantLib {
@@ -69,6 +70,18 @@ namespace QuantLib {
         Volatility localVol(Time t,
                             Real underlyingLevel,
                             bool extrapolate = false) const;
+        //! Local volatility at one time for many underlying levels.
+        /*! Writes localVol(t, underlyingLevels[i], true) to out[i], except
+            that a point where the local volatility is not defined is set
+            to Null<Real>() instead of throwing.  Returns the number of such
+            points.  The default loops over localVol(); surfaces with
+            per-time work to share across points override it.
+
+            \pre out.size() == underlyingLevels.size()
+        */
+        virtual Size localVolSlice(Time t,
+                                   const Array& underlyingLevels,
+                                   Array& out) const;
         //@}
         //! \name Visitability
         //@{

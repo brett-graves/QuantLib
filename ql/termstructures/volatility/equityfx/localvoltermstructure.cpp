@@ -18,6 +18,7 @@
 */
 
 #include <ql/termstructures/volatility/equityfx/localvoltermstructure.hpp>
+#include <ql/errors.hpp>
 
 namespace QuantLib {
 
@@ -52,6 +53,24 @@ namespace QuantLib {
         checkRange(t, extrapolate);
         checkStrike(underlyingLevel, extrapolate);
         return localVolImpl(t, underlyingLevel);
+    }
+
+    Size LocalVolTermStructure::localVolSlice(Time t,
+                                              const Array& underlyingLevels,
+                                              Array& out) const {
+        QL_REQUIRE(out.size() == underlyingLevels.size(),
+                   "localVolSlice: output size " << out.size()
+                   << " != input size " << underlyingLevels.size());
+        Size nIllegal = 0;
+        for (Size i = 0; i < underlyingLevels.size(); ++i) {
+            try {
+                out[i] = localVol(t, underlyingLevels[i], true);
+            } catch (Error&) {
+                out[i] = Null<Real>();
+                ++nIllegal;
+            }
+        }
+        return nIllegal;
     }
 
     void LocalVolTermStructure::accept(AcyclicVisitor& v) {

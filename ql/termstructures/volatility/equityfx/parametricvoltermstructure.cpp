@@ -20,6 +20,7 @@
 #include <ql/termstructures/volatility/equityfx/parametricvoltermstructure.hpp>
 #include <ql/cashflows/dividend.hpp>
 #include <ql/errors.hpp>
+#include <ql/utilities/null.hpp>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -1051,6 +1052,80 @@ namespace QuantLib {
                    "Dupire denominator " << den << " at k=" << k
                    << ", t=" << t << " (calendar/butterfly arb in surface)");
         return dwdt / den;
+    }
+
+    Size ParametricVolTermStructure::localVarianceSlice(
+            Time t, const Real* k, Size n, Real* out) const {
+        QL_REQUIRE(t > 0.0, "localVarianceSlice: time must be > 0");
+        const Size N = T_.size();
+        if (N < 2) {
+            for (Size j = 0; j < n; ++j)
+                out[j] = Null<Real>();
+            return n;
+        }
+
+        // For every t the pillars timeWeights() brackets are also the
+        // interval totalVarianceTimeDerivative() takes the slope of (left
+        // extrapolation excepted), so w at each pillar serves both.
+        const TimeWeights tw = timeWeights(t);
+        const ParametricVolSlice& sLo = slices_.at(tw.sLo);
+        const Real hatLo = sLo.atmIv * std::sqrt(T_[tw.sLo]);
+        const bool oneSlice = tw.leftExtrap || tw.sHi == tw.sLo;
+        const ParametricVolSlice& sHi = slices_.at(tw.sHi);
+        const Real hatHi = sHi.atmIv * std::sqrt(T_[tw.sHi]);
+        const Time dT = T_[tw.sHi] - T_[tw.sLo];
+
+        Size nIllegal = 0;
+        for (Size j = 0; j < n; ++j) {
+            const Real kj = k[j];
+            // Same expressions, in the same order, as totalVariance(i, k),
+            // totalVarianceStrikeDerivative(i, k) and
+            // totalVarianceStrikeSecondDerivative(i, k).
+            const Real zLo = kj / hatLo;
+            const Real wLo = hatLo * hatLo * shape_->f(zLo, sLo.params);
+            const Real dLo = hatLo * shape_->dfdz(zLo, sLo.params);
+            const Real d2Lo = shape_->d2fdz2(zLo, sLo.params);
+
+            Real w, dwdk, d2wdk, dwdt;
+            if (oneSlice) {
+                w = tw.wLo * wLo;
+                dwdk = tw.wLo * dLo;
+                d2wdk = tw.wLo * d2Lo;
+                dwdt = wLo / T_.front();
+            } else {
+                const Real zHi = kj / hatHi;
+                const Real wHi = hatHi * hatHi * shape_->f(zHi, sHi.params);
+                const Real dHi = hatHi * shape_->dfdz(zHi, sHi.params);
+                const Real d2Hi = shape_->d2fdz2(zHi, sHi.params);
+                w = tw.wLo * wLo + tw.wHi * wHi;
+                dwdk = tw.wLo * dLo + tw.wHi * dHi;
+                d2wdk = tw.wLo * d2Lo + tw.wHi * d2Hi;
+                dwdt = (wHi - wLo) / dT;
+            }
+
+            // localVariance(), with its QL_REQUIREs and localVol()'s
+            // non-negativity check turned into Null<Real>().
+            Real lv2;
+            if (dwdk == 0.0 && d2wdk == 0.0) {
+                lv2 = dwdt;
+            } else if (!(w > 0.0)) {
+                lv2 = Null<Real>();
+            } else {
+                const Real den1 = 1.0 - kj / w * dwdk;
+                const Real den2 = 0.25 * (-0.25 - 1.0 / w + kj * kj / (w * w))
+                                  * dwdk * dwdk;
+                const Real den3 = 0.5 * d2wdk;
+                const Real den = den1 + den2 + den3;
+                lv2 = (den > 0.0) ? dwdt / den : Null<Real>();
+            }
+            if (lv2 == Null<Real>() || !(lv2 >= 0.0)) {
+                out[j] = Null<Real>();
+                ++nIllegal;
+            } else {
+                out[j] = lv2;
+            }
+        }
+        return nIllegal;
     }
 
     Real ParametricVolTermStructure::localVol(Real k, Time t) const {
