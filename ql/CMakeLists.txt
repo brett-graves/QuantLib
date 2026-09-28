@@ -2203,6 +2203,7 @@ set(QL_HEADERS
     termstructures/yield/forwardstructure.hpp
     termstructures/yield/impliedtermstructure.hpp
     termstructures/yield/jumpedyieldtermstructure.hpp
+    termstructures/yield/rescaledtimetermstructure.hpp
     termstructures/yield/interpolatedsimplezerocurve.hpp
     termstructures/yield/nonlinearfittingmethods.hpp
     termstructures/yield/oisratehelper.hpp

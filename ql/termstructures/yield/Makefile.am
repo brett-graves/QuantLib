@@ -15,6 +15,7 @@ this_include_HEADERS = \
     forwardstructure.hpp \
     impliedtermstructure.hpp \
     jumpedyieldtermstructure.hpp \
+    rescaledtimetermstructure.hpp \
     interpolatedsimplezerocurve.hpp \
     nonlinearfittingmethods.hpp \
     oisratehelper.hpp \

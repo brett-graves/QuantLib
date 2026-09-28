@@ -34,6 +34,7 @@
 namespace QuantLib {
 
     class Fdm1DimSolver;
+    class FdmBlackScholesOp;
     class FdmSnapshotCondition;
     class GeneralizedBlackScholesProcess;
 
@@ -52,6 +53,10 @@ namespace QuantLib {
         Real gammaAt(Real s) const;
         Real thetaAt(Real s) const;
 
+        //! Local-vol points replaced by the illegal-local-vol overwrite in
+        //! the last solve (0 without local vol).  Call after valueAt().
+        Size illegalLocalVolCount() const;
+
       protected:
         void performCalculations() const override;
 
@@ -65,6 +70,7 @@ namespace QuantLib {
         const Handle<FdmQuantoHelper> quantoHelper_;
 
         mutable ext::shared_ptr<Fdm1DimSolver> solver_;
+        mutable ext::shared_ptr<FdmBlackScholesOp> op_;
     };
 }
 

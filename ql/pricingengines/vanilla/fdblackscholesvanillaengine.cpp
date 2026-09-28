@@ -212,6 +212,7 @@ namespace QuantLib {
         results_.delta = solver->deltaAt(spot);
         results_.gamma = solver->gammaAt(spot);
         results_.theta = solver->thetaAt(spot);
+        illegalLocalVolCount_ = localVol_ ? solver->illegalLocalVolCount() : 0;
     }
 
     MakeFdBlackScholesVanillaEngine::MakeFdBlackScholesVanillaEngine(

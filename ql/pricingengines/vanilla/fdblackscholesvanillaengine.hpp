@@ -95,6 +95,10 @@ namespace QuantLib {
 
         void calculate() const override;
 
+        //! Local-vol grid points priced with illegalLocalVolOverwrite in
+        //! the last calculate() (0 without local vol).
+        Size illegalLocalVolCount() const { return illegalLocalVolCount_; }
+
       private:
         ext::shared_ptr<GeneralizedBlackScholesProcess> process_;
         DividendSchedule dividends_;
@@ -104,6 +108,7 @@ namespace QuantLib {
         Real illegalLocalVolOverwrite_;
         ext::shared_ptr<FdmQuantoHelper> quantoHelper_;
         CashDividendModel cashDividendModel_;
+        mutable Size illegalLocalVolCount_ = 0;
     };
 
 

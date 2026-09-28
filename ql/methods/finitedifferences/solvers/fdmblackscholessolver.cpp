@@ -51,7 +51,13 @@ namespace QuantLib {
                     ? ext::shared_ptr<FdmQuantoHelper>()
                     : quantoHelper_.currentLink()));
 
+        op_ = op;
         solver_ = ext::make_shared<Fdm1DimSolver>(solverDesc_, schemeDesc_, op);
+    }
+
+    Size FdmBlackScholesSolver::illegalLocalVolCount() const {
+        calculate();
+        return op_->illegalLocalVolCount();
     }
 
     Real FdmBlackScholesSolver::valueAt(Real s) const {
