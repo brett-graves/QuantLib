@@ -33,17 +33,14 @@
 
 namespace QuantLib {
 
-    FdmBlackScholesMesher::FdmBlackScholesMesher(
-        Size size,
+    std::pair<Real, Real> FdmBlackScholesMesher::xRange(
         const ext::shared_ptr<GeneralizedBlackScholesProcess>& process,
         Time maturity, Real strike,
         Real xMinConstraint, Real xMaxConstraint,
         Real eps, Real scaleFactor,
-        const std::pair<Real, Real>& cPoint,
         const DividendSchedule& dividendSchedule,
         const ext::shared_ptr<FdmQuantoHelper>& fdmQuantoHelper,
-        Real spotAdjustment)
-    : Fdm1dMesher(size) {
+        Real spotAdjustment) {
 
         const Real S = process->x0();
         QL_REQUIRE(S > 0.0, "negative or null underlying given");
@@ -116,6 +113,28 @@ namespace QuantLib {
         if (xMaxConstraint != Null<Real>()) {
             xMax = xMaxConstraint;
         }
+
+        return {xMin, xMax};
+    }
+
+    FdmBlackScholesMesher::FdmBlackScholesMesher(
+        Size size,
+        const ext::shared_ptr<GeneralizedBlackScholesProcess>& process,
+        Time maturity, Real strike,
+        Real xMinConstraint, Real xMaxConstraint,
+        Real eps, Real scaleFactor,
+        const std::pair<Real, Real>& cPoint,
+        const DividendSchedule& dividendSchedule,
+        const ext::shared_ptr<FdmQuantoHelper>& fdmQuantoHelper,
+        Real spotAdjustment)
+    : Fdm1dMesher(size) {
+
+        const std::pair<Real, Real> range = xRange(
+            process, maturity, strike, xMinConstraint, xMaxConstraint,
+            eps, scaleFactor, dividendSchedule, fdmQuantoHelper,
+            spotAdjustment);
+        const Real xMin = range.first;
+        const Real xMax = range.second;
 
         ext::shared_ptr<Fdm1dMesher> helper;
         if (   cPoint.first != Null<Real>() 

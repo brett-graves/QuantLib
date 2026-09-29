@@ -51,6 +51,24 @@ namespace QuantLib {
             const ext::shared_ptr<FdmQuantoHelper>& fdmQuantoHelper = {},
             Real spotAdjustment = 0.0);
 
+        //! The [xMin, xMax] range in ln(S) the constructor spans for the
+        //! same arguments: the forward's min/max over the dividend path,
+        //! widened by sigma(maturity, strike) sqrt(maturity)
+        //! N^{-1}(1 - eps) scaleFactor on each side, then overridden by
+        //! the constraints when given.  Lets callers build a different
+        //! 1-d mesher (e.g. several concentration points) over the same
+        //! range.
+        static std::pair<Real, Real> xRange(
+            const ext::shared_ptr<GeneralizedBlackScholesProcess>& process,
+            Time maturity, Real strike,
+            Real xMinConstraint = Null<Real>(),
+            Real xMaxConstraint = Null<Real>(),
+            Real eps = 0.0001,
+            Real scaleFactor = 1.5,
+            const DividendSchedule& dividendSchedule = {},
+            const ext::shared_ptr<FdmQuantoHelper>& fdmQuantoHelper = {},
+            Real spotAdjustment = 0.0);
+
         static ext::shared_ptr<GeneralizedBlackScholesProcess> processHelper(
              const Handle<Quote>& s0,
              const Handle<YieldTermStructure>& rTS,

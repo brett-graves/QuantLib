@@ -29,14 +29,43 @@
 #include <ql/pricingengine.hpp>
 #include <ql/pricingengines/vanilla/cashdividendeuropeanengine.hpp>
 #include <ql/methods/finitedifferences/solvers/fdmbackwardsolver.hpp>
+#include <tuple>
+#include <vector>
 
 namespace QuantLib {
 
+    class Fdm1dMesher;
     class FdmQuantoHelper;
     class GeneralizedBlackScholesProcess;
 
     //! Finite-differences Black Scholes vanilla option engine
-    /*! \ingroup vanillaengines
+    /*! Optional mesh and time-grid controls (defaults reproduce the
+        classic engine exactly):
+
+        - \p mesherScaleFactor, \p mesherEps: the ln(S) range of the
+          FdmBlackScholesMesher, i.e. the forward's span widened by
+          sigma(T, K) sqrt(T) N^{-1}(1 - eps) scaleFactor on each side.
+          Local-vol surfaces whose wings carry much higher vol than
+          sigma(T, K) need a wider range than the default 1.5.
+        - \p spotConcentrationDensity: when given, the mesh concentrates
+          at the (dividend-adjusted) spot as well as at the strike, both
+          through one multi-point Concentrating1dMesher over the same
+          range; densities are relative to the range width, as in
+          Concentrating1dMesher (the strike keeps 0.1).  The spot is read
+          at every calculate(), so a cached engine follows spot moves.
+        - \p concentrationPoints: further (level, density, required)
+          points; the level is in units of the underlying (not ln S),
+          density as above, required forces the level onto the grid.
+          Points outside the range are ignored.
+        - \p stoppingTimes: extra times (process time, the risk-free
+          curve's clock) the rollback must stop at, joined into the
+          step-condition composite.  Local-vol surfaces interpolated
+          linearly in total variance between expiry pillars have local
+          vol discontinuous in time at the pillars; stopping there keeps
+          any time step from straddling one.  Times outside
+          (0, maturity) are ignored.
+
+        \ingroup vanillaengines
 
         \test the correctness of the returned value is tested by
               reproducing results available in web/literature
@@ -57,7 +86,12 @@ namespace QuantLib {
             const FdmSchemeDesc& schemeDesc = FdmSchemeDesc::Douglas(),
             bool localVol = false,
             Real illegalLocalVolOverwrite = -Null<Real>(),
-            CashDividendModel cashDividendModel = Spot);
+            CashDividendModel cashDividendModel = Spot,
+            Real mesherScaleFactor = 1.5,
+            Real mesherEps = 0.0001,
+            Real spotConcentrationDensity = Null<Real>(),
+            std::vector<std::tuple<Real, Real, bool> > concentrationPoints = {},
+            std::vector<Time> stoppingTimes = {});
 
         FdBlackScholesVanillaEngine(
             ext::shared_ptr<GeneralizedBlackScholesProcess>,
@@ -68,7 +102,12 @@ namespace QuantLib {
             const FdmSchemeDesc& schemeDesc = FdmSchemeDesc::Douglas(),
             bool localVol = false,
             Real illegalLocalVolOverwrite = -Null<Real>(),
-            CashDividendModel cashDividendModel = Spot);
+            CashDividendModel cashDividendModel = Spot,
+            Real mesherScaleFactor = 1.5,
+            Real mesherEps = 0.0001,
+            Real spotConcentrationDensity = Null<Real>(),
+            std::vector<std::tuple<Real, Real, bool> > concentrationPoints = {},
+            std::vector<Time> stoppingTimes = {});
 
         FdBlackScholesVanillaEngine(
             ext::shared_ptr<GeneralizedBlackScholesProcess>,
@@ -79,7 +118,12 @@ namespace QuantLib {
             const FdmSchemeDesc& schemeDesc = FdmSchemeDesc::Douglas(),
             bool localVol = false,
             Real illegalLocalVolOverwrite = -Null<Real>(),
-            CashDividendModel cashDividendModel = Spot);
+            CashDividendModel cashDividendModel = Spot,
+            Real mesherScaleFactor = 1.5,
+            Real mesherEps = 0.0001,
+            Real spotConcentrationDensity = Null<Real>(),
+            std::vector<std::tuple<Real, Real, bool> > concentrationPoints = {},
+            std::vector<Time> stoppingTimes = {});
 
         FdBlackScholesVanillaEngine(
             ext::shared_ptr<GeneralizedBlackScholesProcess>,
@@ -91,7 +135,12 @@ namespace QuantLib {
             const FdmSchemeDesc& schemeDesc = FdmSchemeDesc::Douglas(),
             bool localVol = false,
             Real illegalLocalVolOverwrite = -Null<Real>(),
-            CashDividendModel cashDividendModel = Spot);
+            CashDividendModel cashDividendModel = Spot,
+            Real mesherScaleFactor = 1.5,
+            Real mesherEps = 0.0001,
+            Real spotConcentrationDensity = Null<Real>(),
+            std::vector<std::tuple<Real, Real, bool> > concentrationPoints = {},
+            std::vector<Time> stoppingTimes = {});
 
         void calculate() const override;
 
@@ -100,6 +149,11 @@ namespace QuantLib {
         Size illegalLocalVolCount() const { return illegalLocalVolCount_; }
 
       private:
+        ext::shared_ptr<Fdm1dMesher> equityMesher(
+            Time maturity, Real strike,
+            const DividendSchedule& dividendSchedule,
+            Real spotAdjustment) const;
+
         ext::shared_ptr<GeneralizedBlackScholesProcess> process_;
         DividendSchedule dividends_;
         Size tGrid_, xGrid_, dampingSteps_;
@@ -108,6 +162,9 @@ namespace QuantLib {
         Real illegalLocalVolOverwrite_;
         ext::shared_ptr<FdmQuantoHelper> quantoHelper_;
         CashDividendModel cashDividendModel_;
+        Real mesherScaleFactor_, mesherEps_, spotConcentrationDensity_;
+        std::vector<std::tuple<Real, Real, bool> > concentrationPoints_;
+        std::vector<Time> stoppingTimes_;
         mutable Size illegalLocalVolCount_ = 0;
     };
 
@@ -139,6 +196,16 @@ namespace QuantLib {
         MakeFdBlackScholesVanillaEngine& withCashDividendModel(
             FdBlackScholesVanillaEngine::CashDividendModel cashDividendModel);
 
+        MakeFdBlackScholesVanillaEngine& withMesherScaleFactor(
+            Real scaleFactor);
+        MakeFdBlackScholesVanillaEngine& withMesherEps(Real eps);
+        MakeFdBlackScholesVanillaEngine& withSpotConcentration(
+            Real density);
+        MakeFdBlackScholesVanillaEngine& withConcentrationPoints(
+            const std::vector<std::tuple<Real, Real, bool> >& points);
+        MakeFdBlackScholesVanillaEngine& withStoppingTimes(
+            const std::vector<Time>& stoppingTimes);
+
         operator ext::shared_ptr<PricingEngine>() const;
       private:
         ext::shared_ptr<GeneralizedBlackScholesProcess> process_;
@@ -149,6 +216,10 @@ namespace QuantLib {
         Real illegalLocalVolOverwrite_;
         ext::shared_ptr<FdmQuantoHelper> quantoHelper_;
         FdBlackScholesVanillaEngine::CashDividendModel cashDividendModel_ = FdBlackScholesVanillaEngine::Spot;
+        Real mesherScaleFactor_ = 1.5, mesherEps_ = 0.0001;
+        Real spotConcentrationDensity_;
+        std::vector<std::tuple<Real, Real, bool> > concentrationPoints_;
+        std::vector<Time> stoppingTimes_;
     };
 
 }

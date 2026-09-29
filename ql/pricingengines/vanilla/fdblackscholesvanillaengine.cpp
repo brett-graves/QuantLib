@@ -20,7 +20,9 @@
 */
 
 #include <ql/exercise.hpp>
+#include <ql/methods/finitedifferences/meshers/concentrating1dmesher.hpp>
 #include <ql/methods/finitedifferences/meshers/fdmblackscholesmesher.hpp>
+#include <ql/methods/finitedifferences/meshers/uniform1dmesher.hpp>
 #include <ql/methods/finitedifferences/utilities/escroweddividendadjustment.hpp>
 #include <ql/methods/finitedifferences/meshers/fdmmeshercomposite.hpp>
 #include <ql/methods/finitedifferences/operators/fdmlinearoplayout.hpp>
@@ -42,10 +44,19 @@ namespace QuantLib {
         const FdmSchemeDesc& schemeDesc,
         bool localVol,
         Real illegalLocalVolOverwrite,
-        CashDividendModel cashDividendModel)
+        CashDividendModel cashDividendModel,
+        Real mesherScaleFactor,
+        Real mesherEps,
+        Real spotConcentrationDensity,
+        std::vector<std::tuple<Real, Real, bool> > concentrationPoints,
+        std::vector<Time> stoppingTimes)
     : process_(std::move(process)), tGrid_(tGrid), xGrid_(xGrid),
       dampingSteps_(dampingSteps), schemeDesc_(schemeDesc), localVol_(localVol),
-      illegalLocalVolOverwrite_(illegalLocalVolOverwrite), cashDividendModel_(cashDividendModel) {
+      illegalLocalVolOverwrite_(illegalLocalVolOverwrite), cashDividendModel_(cashDividendModel),
+      mesherScaleFactor_(mesherScaleFactor), mesherEps_(mesherEps),
+      spotConcentrationDensity_(spotConcentrationDensity),
+      concentrationPoints_(std::move(concentrationPoints)),
+      stoppingTimes_(std::move(stoppingTimes)) {
         registerWith(process_);
     }
 
@@ -58,11 +69,20 @@ namespace QuantLib {
         const FdmSchemeDesc& schemeDesc,
         bool localVol,
         Real illegalLocalVolOverwrite,
-        CashDividendModel cashDividendModel)
+        CashDividendModel cashDividendModel,
+        Real mesherScaleFactor,
+        Real mesherEps,
+        Real spotConcentrationDensity,
+        std::vector<std::tuple<Real, Real, bool> > concentrationPoints,
+        std::vector<Time> stoppingTimes)
     : process_(std::move(process)), dividends_(std::move(dividends)),
       tGrid_(tGrid), xGrid_(xGrid), dampingSteps_(dampingSteps), schemeDesc_(schemeDesc),
       localVol_(localVol), illegalLocalVolOverwrite_(illegalLocalVolOverwrite),
-      cashDividendModel_(cashDividendModel) {
+      cashDividendModel_(cashDividendModel),
+      mesherScaleFactor_(mesherScaleFactor), mesherEps_(mesherEps),
+      spotConcentrationDensity_(spotConcentrationDensity),
+      concentrationPoints_(std::move(concentrationPoints)),
+      stoppingTimes_(std::move(stoppingTimes)) {
         registerWith(process_);
     }
 
@@ -75,12 +95,21 @@ namespace QuantLib {
         const FdmSchemeDesc& schemeDesc,
         bool localVol,
         Real illegalLocalVolOverwrite,
-        CashDividendModel cashDividendModel)
+        CashDividendModel cashDividendModel,
+        Real mesherScaleFactor,
+        Real mesherEps,
+        Real spotConcentrationDensity,
+        std::vector<std::tuple<Real, Real, bool> > concentrationPoints,
+        std::vector<Time> stoppingTimes)
     : process_(std::move(process)),
       tGrid_(tGrid), xGrid_(xGrid), dampingSteps_(dampingSteps),
       schemeDesc_(schemeDesc), localVol_(localVol),
       illegalLocalVolOverwrite_(illegalLocalVolOverwrite), quantoHelper_(std::move(quantoHelper)),
-      cashDividendModel_(cashDividendModel) {
+      cashDividendModel_(cashDividendModel),
+      mesherScaleFactor_(mesherScaleFactor), mesherEps_(mesherEps),
+      spotConcentrationDensity_(spotConcentrationDensity),
+      concentrationPoints_(std::move(concentrationPoints)),
+      stoppingTimes_(std::move(stoppingTimes)) {
         registerWith(process_);
         registerWith(quantoHelper_);
     }
@@ -95,12 +124,21 @@ namespace QuantLib {
         const FdmSchemeDesc& schemeDesc,
         bool localVol,
         Real illegalLocalVolOverwrite,
-        CashDividendModel cashDividendModel)
+        CashDividendModel cashDividendModel,
+        Real mesherScaleFactor,
+        Real mesherEps,
+        Real spotConcentrationDensity,
+        std::vector<std::tuple<Real, Real, bool> > concentrationPoints,
+        std::vector<Time> stoppingTimes)
     : process_(std::move(process)), dividends_(std::move(dividends)),
       tGrid_(tGrid), xGrid_(xGrid), dampingSteps_(dampingSteps),
       schemeDesc_(schemeDesc), localVol_(localVol),
       illegalLocalVolOverwrite_(illegalLocalVolOverwrite), quantoHelper_(std::move(quantoHelper)),
-      cashDividendModel_(cashDividendModel) {
+      cashDividendModel_(cashDividendModel),
+      mesherScaleFactor_(mesherScaleFactor), mesherEps_(mesherEps),
+      spotConcentrationDensity_(spotConcentrationDensity),
+      concentrationPoints_(std::move(concentrationPoints)),
+      stoppingTimes_(std::move(stoppingTimes)) {
         registerWith(process_);
         registerWith(quantoHelper_);
     }
@@ -155,16 +193,9 @@ namespace QuantLib {
         const ext::shared_ptr<StrikedTypePayoff> payoff =
             ext::dynamic_pointer_cast<StrikedTypePayoff>(arguments_.payoff);
 
-        const ext::shared_ptr<Fdm1dMesher> equityMesher =
-            ext::make_shared<FdmBlackScholesMesher>(
-                    xGrid_, process_, maturity, payoff->strike(), 
-                    Null<Real>(), Null<Real>(), 0.0001, 1.5,
-                    std::pair<Real, Real>(payoff->strike(), 0.1),
-                    dividendSchedule, quantoHelper_,
-                    spotAdjustment);
-        
         const ext::shared_ptr<FdmMesher> mesher =
-            ext::make_shared<FdmMesherComposite>(equityMesher);
+            ext::make_shared<FdmMesherComposite>(equityMesher(
+                maturity, payoff->strike(), dividendSchedule, spotAdjustment));
         
         // 2. Calculator
         const ext::shared_ptr<FdmInnerValueCalculator> calculator =
@@ -184,12 +215,25 @@ namespace QuantLib {
         }
 
         // 3. Step conditions
-        const ext::shared_ptr<FdmStepConditionComposite> conditions = 
+        ext::shared_ptr<FdmStepConditionComposite> conditions =
             FdmStepConditionComposite::vanillaComposite(
                 dividendSchedule, arguments_.exercise, mesher,
                 earlyExerciseCalculator,
                 process_->riskFreeRate()->referenceDate(),
                 process_->riskFreeRate()->dayCounter());
+
+        std::vector<Time> extraStops;
+        for (Time t : stoppingTimes_)
+            if (t > 0.0 && t < maturity)
+                extraStops.push_back(t);
+        if (!extraStops.empty()) {
+            // Same conditions, more stopping times: the composite merges
+            // and sorts them, and the rollback splits any step that
+            // straddles one.
+            conditions = ext::make_shared<FdmStepConditionComposite>(
+                std::list<std::vector<Time> >{conditions->stoppingTimes(), extraStops},
+                conditions->conditions());
+        }
 
         // 4. Boundary conditions
         const FdmBoundaryConditionSet boundaries;
@@ -215,11 +259,60 @@ namespace QuantLib {
         illegalLocalVolCount_ = localVol_ ? solver->illegalLocalVolCount() : 0;
     }
 
+    ext::shared_ptr<Fdm1dMesher> FdBlackScholesVanillaEngine::equityMesher(
+        Time maturity, Real strike,
+        const DividendSchedule& dividendSchedule,
+        Real spotAdjustment) const {
+
+        if (spotConcentrationDensity_ == Null<Real>() && concentrationPoints_.empty()) {
+            // the classic mesh: concentrated at the strike only
+            return ext::make_shared<FdmBlackScholesMesher>(
+                xGrid_, process_, maturity, strike,
+                Null<Real>(), Null<Real>(), mesherEps_, mesherScaleFactor_,
+                std::pair<Real, Real>(strike, 0.1),
+                dividendSchedule, quantoHelper_,
+                spotAdjustment);
+        }
+
+        const std::pair<Real, Real> range = FdmBlackScholesMesher::xRange(
+            process_, maturity, strike, Null<Real>(), Null<Real>(),
+            mesherEps_, mesherScaleFactor_, dividendSchedule, quantoHelper_,
+            spotAdjustment);
+        const Real xMin = range.first, xMax = range.second;
+
+        // concentration points in ln(S); the strike keeps the classic 0.1
+        std::vector<std::tuple<Real, Real, bool> > points;
+        const auto addPoint = [&](Real level, Real density, bool required) {
+            QL_REQUIRE(level > 0.0,
+                       "concentration level must be positive, got " << level);
+            QL_REQUIRE(density > 0.0,
+                       "concentration density must be positive, got " << density);
+            const Real x = std::log(level);
+            if (x >= xMin && x <= xMax)
+                points.emplace_back(x, density, required);
+        };
+        addPoint(strike, 0.1, false);
+        if (spotConcentrationDensity_ != Null<Real>())
+            addPoint(process_->x0() + spotAdjustment, spotConcentrationDensity_, false);
+        for (const auto& p : concentrationPoints_)
+            addPoint(std::get<0>(p), std::get<1>(p), std::get<2>(p));
+
+        if (points.empty())
+            return ext::make_shared<Uniform1dMesher>(xMin, xMax, xGrid_);
+        if (points.size() == 1)
+            return ext::make_shared<Concentrating1dMesher>(
+                xMin, xMax, xGrid_,
+                std::pair<Real, Real>(std::get<0>(points[0]), std::get<1>(points[0])),
+                std::get<2>(points[0]));
+        return ext::make_shared<Concentrating1dMesher>(xMin, xMax, xGrid_, points);
+    }
+
     MakeFdBlackScholesVanillaEngine::MakeFdBlackScholesVanillaEngine(
         ext::shared_ptr<GeneralizedBlackScholesProcess> process)
     : process_(std::move(process)),
       schemeDesc_(ext::make_shared<FdmSchemeDesc>(FdmSchemeDesc::Douglas())),
-      illegalLocalVolOverwrite_(-Null<Real>()) {}
+      illegalLocalVolOverwrite_(-Null<Real>()),
+      spotConcentrationDensity_(Null<Real>()) {}
 
     MakeFdBlackScholesVanillaEngine&
     MakeFdBlackScholesVanillaEngine::withQuantoHelper(
@@ -281,6 +374,38 @@ namespace QuantLib {
         return *this;
     }
 
+    MakeFdBlackScholesVanillaEngine&
+    MakeFdBlackScholesVanillaEngine::withMesherScaleFactor(Real scaleFactor) {
+        mesherScaleFactor_ = scaleFactor;
+        return *this;
+    }
+
+    MakeFdBlackScholesVanillaEngine&
+    MakeFdBlackScholesVanillaEngine::withMesherEps(Real eps) {
+        mesherEps_ = eps;
+        return *this;
+    }
+
+    MakeFdBlackScholesVanillaEngine&
+    MakeFdBlackScholesVanillaEngine::withSpotConcentration(Real density) {
+        spotConcentrationDensity_ = density;
+        return *this;
+    }
+
+    MakeFdBlackScholesVanillaEngine&
+    MakeFdBlackScholesVanillaEngine::withConcentrationPoints(
+        const std::vector<std::tuple<Real, Real, bool> >& points) {
+        concentrationPoints_ = points;
+        return *this;
+    }
+
+    MakeFdBlackScholesVanillaEngine&
+    MakeFdBlackScholesVanillaEngine::withStoppingTimes(
+        const std::vector<Time>& stoppingTimes) {
+        stoppingTimes_ = stoppingTimes;
+        return *this;
+    }
+
     MakeFdBlackScholesVanillaEngine::operator
     ext::shared_ptr<PricingEngine>() const {
         return ext::make_shared<FdBlackScholesVanillaEngine>(
@@ -291,7 +416,12 @@ namespace QuantLib {
                 *schemeDesc_,
                 localVol_,
                 illegalLocalVolOverwrite_,
-                cashDividendModel_);
+                cashDividendModel_,
+                mesherScaleFactor_,
+                mesherEps_,
+                spotConcentrationDensity_,
+                concentrationPoints_,
+                stoppingTimes_);
     }
 
 }
