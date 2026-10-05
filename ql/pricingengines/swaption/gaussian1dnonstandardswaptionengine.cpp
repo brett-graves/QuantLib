@@ -224,11 +224,13 @@ namespace QuantLib {
             // todo add openmp support later on (as in gaussian1dswaptionengine)
 
             // Precompute OAS discount factors (independent of state k)
+            // The step factor is needed on the final (expiry0 <= settlement)
+            // step too, as in the original per-k computation.
             Real zSpreadDf_step = Real(1.0);
+            if (!oas_.empty() && expiry1Time != Null<Real>())
+                zSpreadDf_step = std::exp(-oas_->value() * (expiry1Time - expiry0Time));
             std::vector<Real> oasFixedDf, oasFloatDf;
             if (expiry0 > settlement && !oas_.empty()) {
-                zSpreadDf_step = std::exp(-oas_->value() *
-                    (expiry1Time != Null<Real>() ? (expiry1Time - expiry0Time) : 0.0));
                 const auto& dc = model_->termStructure()->dayCounter();
                 oasFixedDf.resize(arguments_.fixedCoupons.size());
                 for (Size l = j1; l < arguments_.fixedCoupons.size(); l++)
