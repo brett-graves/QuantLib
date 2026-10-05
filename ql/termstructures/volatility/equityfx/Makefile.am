@@ -12,6 +12,7 @@ this_include_HEADERS = \
     blackvariancesurface.hpp \
     blackvolsurfacedelta.hpp \
     blackvoltermstructure.hpp \
+    bsplinevariancesurface.hpp \
     blackvoltimeextrapolation.hpp \
     essvihelpers.hpp \
     essvivoltermstructure.hpp \
@@ -40,6 +41,7 @@ cpp_files = \
     blackvariancesurface.cpp \
     blackvolsurfacedelta.cpp \
     blackvoltermstructure.cpp \
+    bsplinevariancesurface.cpp \
     blackvoltimeextrapolation.cpp \
     essvihelpers.cpp \
     essvivoltermstructure.cpp \

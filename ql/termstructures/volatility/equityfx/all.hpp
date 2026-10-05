@@ -9,6 +9,7 @@
 #include <ql/termstructures/volatility/equityfx/blackvariancesurface.hpp>
 #include <ql/termstructures/volatility/equityfx/blackvolsurfacedelta.hpp>
 #include <ql/termstructures/volatility/equityfx/blackvoltermstructure.hpp>
+#include <ql/termstructures/volatility/equityfx/bsplinevariancesurface.hpp>
 #include <ql/termstructures/volatility/equityfx/essvihelpers.hpp>
 #include <ql/termstructures/volatility/equityfx/essvivoltermstructure.hpp>
 #include <ql/termstructures/volatility/equityfx/blackvoltimeextrapolation.hpp>
