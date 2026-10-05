@@ -81,7 +81,9 @@ namespace QuantLib {
         /*! Batched evaluation on a tensor-product (t, S) grid.
 
             Returns ``out[i * underlyingLevels.size() + j]`` = analytic
-            ``localVol(times[i], underlyingLevels[j])``.  See
+            ``localVol(times[i], underlyingLevels[j])``, evaluated one
+            time row at a time through localVolSlice().  Raises on an
+            illegal (negative or undefined) local variance.  See
             EssviLocalVolSurface::localVolGrid for the use case rationale.
         */
         std::vector<Volatility> localVolGrid(
