@@ -8,6 +8,7 @@
 #include <ql/methods/finitedifferences/solvers/fdmbackwardsolver.hpp>
 #include <ql/methods/finitedifferences/solvers/fdmbatessolver.hpp>
 #include <ql/methods/finitedifferences/solvers/fdmblackscholessolver.hpp>
+#include <ql/methods/finitedifferences/solvers/fdmblackscholesstripsolver.hpp>
 #include <ql/methods/finitedifferences/solvers/fdmg2solver.hpp>
 #include <ql/methods/finitedifferences/solvers/fdmhestonhullwhitesolver.hpp>
 #include <ql/methods/finitedifferences/solvers/fdmhestonsolver.hpp>

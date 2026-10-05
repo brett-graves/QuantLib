@@ -97,6 +97,16 @@ namespace QuantLib {
             back to FD automatically. */
         virtual std::vector<Real> dfdParams(
             Real z, const std::vector<Real>& params) const;
+
+        //! f, df/dz and d²f/dz² (default FD step) at n points.
+        /*! Default implementation: f(), dfdz() and d2fdz2() per point,
+            so Python shapes keep their own overrides.  Built-in shapes
+            override it with one pass that evaluates their shared
+            intermediates once; the values equal the per-point calls
+            exactly.  Not exposed to SWIG. */
+        virtual void fSlice(const Real* z, Size n,
+                            const std::vector<Real>& params,
+                            Real* f, Real* dfdz, Real* d2fdz2) const;
     };
 
     //! S3 / SSVI shape: 3-parameter Klassen / Gatheral-Jacquier smile.
@@ -120,6 +130,8 @@ namespace QuantLib {
                     Real h = 1e-4) const override;
         std::vector<Real> dfdParams(
             Real z, const std::vector<Real>& params) const override;
+        void fSlice(const Real* z, Size n, const std::vector<Real>& params,
+                    Real* f, Real* dfdz, Real* d2fdz2) const override;
     };
 
     //! JW (Jump-Wing) shape: 5-parameter Klassen-style smile with
@@ -156,6 +168,8 @@ namespace QuantLib {
                     Real h = 1e-4) const override;
         std::vector<Real> dfdParams(
             Real z, const std::vector<Real>& params) const override;
+        void fSlice(const Real* z, Size n, const std::vector<Real>& params,
+                    Real* f, Real* dfdz, Real* d2fdz2) const override;
     };
 
     //! K5 shape: tanh^2 blend between independent ATF curvature and
@@ -199,6 +213,8 @@ namespace QuantLib {
                     Real h = 1e-4) const override;
         std::vector<Real> dfdParams(
             Real z, const std::vector<Real>& params) const override;
+        void fSlice(const Real* z, Size n, const std::vector<Real>& params,
+                    Real* f, Real* dfdz, Real* d2fdz2) const override;
     };
 
     //! K7 shape: two-knot tanh-blended smile decoupling ATF / mid-wing /

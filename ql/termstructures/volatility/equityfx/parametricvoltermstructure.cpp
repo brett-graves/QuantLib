@@ -38,6 +38,17 @@ namespace QuantLib {
         return (dfdz(z + h, params) - dfdz(z - h, params)) / (2.0 * h);
     }
 
+    void ParametricVolShape::fSlice(const Real* z, Size n,
+                                    const std::vector<Real>& params,
+                                    Real* f, Real* dfdz,
+                                    Real* d2fdz2) const {
+        for (Size i = 0; i < n; ++i) {
+            f[i] = this->f(z[i], params);
+            dfdz[i] = this->dfdz(z[i], params);
+            d2fdz2[i] = this->d2fdz2(z[i], params);
+        }
+    }
+
     std::vector<Real> ParametricVolShape::dfdParams(
             Real z, const std::vector<Real>& params) const {
         std::vector<Real> out(params.size());
@@ -91,6 +102,29 @@ namespace QuantLib {
         // 0.5·a is linear in z so contributes nothing to f''.
         // f''(z) = R''/(2 r) − R'² / (4 r³)
         return Rpp / (2.0 * r) - (Rp * Rp) / (4.0 * r * R);
+    }
+
+    void S3Shape::fSlice(const Real* z, Size n, const std::vector<Real>& p,
+                         Real* f, Real* dfdz, Real* d2fdz2) const {
+        if (n == 0)
+            return;
+        QL_REQUIRE(p.size() == 2,
+                   "S3Shape: expected 2 params (s2, c2), got " << p.size());
+        const Real s2 = p[0], c2 = p[1];
+        QL_REQUIRE(c2 >= 0.0,
+                   "S3Shape: c2 (=" << c2 << ") must be >= 0 for positivity");
+        // f(), dfdz() and d2fdz2() with their common terms evaluated once
+        for (Size i = 0; i < n; ++i) {
+            const Real zi = z[i];
+            const Real a = 1.0 + s2 * zi;
+            const Real R = 0.25 * a * a + 0.5 * c2 * zi * zi;
+            const Real r = std::sqrt(R);
+            const Real Rp = 0.5 * a * s2 + c2 * zi;
+            const Real Rpp = 0.5 * s2 * s2 + c2;
+            f[i] = 0.5 * a + r;
+            dfdz[i] = 0.5 * s2 + Rp / (2.0 * r);
+            d2fdz2[i] = Rpp / (2.0 * r) - (Rp * Rp) / (4.0 * r * R);
+        }
     }
 
     std::vector<Real> S3Shape::dfdParams(
@@ -161,6 +195,32 @@ namespace QuantLib {
         // Piecewise-S3.  f''(0) is discontinuous when cm != cp; right-
         // continuous convention matches f / dfdz at z = 0 (uses c_plus).
         return s3KernelD2fdz2(z, s2, (z < 0.0 ? cm : cp));
+    }
+
+    void JWShape::fSlice(const Real* z, Size n, const std::vector<Real>& p,
+                         Real* f, Real* dfdz, Real* d2fdz2) const {
+        if (n == 0)
+            return;
+        QL_REQUIRE(p.size() == 3,
+                   "JWShape: expected 3 params (s2, c_minus, c_plus), got "
+                   << p.size());
+        const Real s2 = p[0], cm = p[1], cp = p[2];
+        QL_REQUIRE(cm >= 0.0 && cp >= 0.0,
+                   "JWShape: c_minus (" << cm << ") and c_plus (" << cp
+                   << ") must be >= 0");
+        // the s3Kernel* expressions with their common terms evaluated once
+        for (Size i = 0; i < n; ++i) {
+            const Real zi = z[i];
+            const Real c = zi < 0.0 ? cm : cp;
+            const Real a = 1.0 + s2 * zi;
+            const Real R = 0.25 * a * a + 0.5 * c * zi * zi;
+            const Real r = std::sqrt(R);
+            const Real Rp = 0.5 * a * s2 + c * zi;
+            const Real Rpp = 0.5 * s2 * s2 + c;
+            f[i] = 0.5 * a + r;
+            dfdz[i] = 0.5 * s2 + Rp / (2.0 * r);
+            d2fdz2[i] = Rpp / (2.0 * r) - (Rp * Rp) / (4.0 * r * R);
+        }
     }
 
     std::vector<Real> JWShape::dfdParams(
@@ -271,6 +331,40 @@ namespace QuantLib {
         Real Rpp = 0.5 * s * s + 0.5 * d2c_dz2 * z * z
                    + 2.0 * dc_dz * z + c_eff;
         return Rpp / (2.0 * r) - (Rp * Rp) / (4.0 * r * R);
+    }
+
+    void K5Shape::fSlice(const Real* z, Size n, const std::vector<Real>& p,
+                         Real* f, Real* dfdz, Real* d2fdz2) const {
+        if (n == 0)
+            return;
+        QL_REQUIRE(p.size() == 4,
+                   "K5Shape: expected 4 params (s, c, c_minus, c_plus), got "
+                   << p.size());
+        const Real s = p[0];
+        const Real c  = std::max(p[1], 0.0);
+        const Real cm = std::max(p[2], 0.0);
+        const Real cp = std::max(p[3], 0.0);
+        // f(), dfdz() and d2fdz2() with the blend and the radicand
+        // evaluated once
+        for (Size i = 0; i < n; ++i) {
+            const Real zi = z[i];
+            const Real a = 1.0 + s * zi;
+            Real c_eff, dc_dz, d2c_dz2;
+            k5CEff(zi, c, cm, cp, c_eff, dc_dz, d2c_dz2);
+            const Real R = 0.25 * a * a + 0.5 * c_eff * zi * zi;
+            f[i] = 0.5 * a + std::sqrt(std::max(R, 0.0));
+            if (R <= 0.0) {
+                dfdz[i] = 0.5 * s;
+                d2fdz2[i] = 0.0;
+                continue;
+            }
+            const Real r = std::sqrt(R);
+            const Real Rp = 0.5 * s * a + 0.5 * dc_dz * zi * zi + c_eff * zi;
+            const Real Rpp = 0.5 * s * s + 0.5 * d2c_dz2 * zi * zi
+                             + 2.0 * dc_dz * zi + c_eff;
+            dfdz[i] = 0.5 * s + Rp / (2.0 * r);
+            d2fdz2[i] = Rpp / (2.0 * r) - (Rp * Rp) / (4.0 * r * R);
+        }
     }
 
     std::vector<Real> K5Shape::dfdParams(
@@ -1075,16 +1169,35 @@ namespace QuantLib {
         const Real hatHi = sHi.atmIv * std::sqrt(T_[tw.sHi]);
         const Time dT = T_[tw.sHi] - T_[tw.sLo];
 
+        // The shape at every node of both pillars, one fSlice() call per
+        // pillar.  k may alias out, so every z is formed before any write.
+        std::vector<Real> buf((oneSlice ? 4 : 8) * n);
+        Real* zLoV = buf.data();
+        Real* fLo = zLoV + n;
+        Real* dfLo = fLo + n;
+        Real* d2fLo = dfLo + n;
+        Real* zHiV = d2fLo + n;
+        Real* fHi = oneSlice ? nullptr : zHiV + n;
+        Real* dfHi = oneSlice ? nullptr : fHi + n;
+        Real* d2fHi = oneSlice ? nullptr : dfHi + n;
+        for (Size j = 0; j < n; ++j)
+            zLoV[j] = k[j] / hatLo;
+        if (!oneSlice)
+            for (Size j = 0; j < n; ++j)
+                zHiV[j] = k[j] / hatHi;
+        shape_->fSlice(zLoV, n, sLo.params, fLo, dfLo, d2fLo);
+        if (!oneSlice)
+            shape_->fSlice(zHiV, n, sHi.params, fHi, dfHi, d2fHi);
+
         Size nIllegal = 0;
         for (Size j = 0; j < n; ++j) {
             const Real kj = k[j];
             // Same expressions, in the same order, as totalVariance(i, k),
             // totalVarianceStrikeDerivative(i, k) and
             // totalVarianceStrikeSecondDerivative(i, k).
-            const Real zLo = kj / hatLo;
-            const Real wLo = hatLo * hatLo * shape_->f(zLo, sLo.params);
-            const Real dLo = hatLo * shape_->dfdz(zLo, sLo.params);
-            const Real d2Lo = shape_->d2fdz2(zLo, sLo.params);
+            const Real wLo = hatLo * hatLo * fLo[j];
+            const Real dLo = hatLo * dfLo[j];
+            const Real d2Lo = d2fLo[j];
 
             Real w, dwdk, d2wdk, dwdt;
             if (oneSlice) {
@@ -1093,10 +1206,9 @@ namespace QuantLib {
                 d2wdk = tw.wLo * d2Lo;
                 dwdt = wLo / T_.front();
             } else {
-                const Real zHi = kj / hatHi;
-                const Real wHi = hatHi * hatHi * shape_->f(zHi, sHi.params);
-                const Real dHi = hatHi * shape_->dfdz(zHi, sHi.params);
-                const Real d2Hi = shape_->d2fdz2(zHi, sHi.params);
+                const Real wHi = hatHi * hatHi * fHi[j];
+                const Real dHi = hatHi * dfHi[j];
+                const Real d2Hi = d2fHi[j];
                 w = tw.wLo * wLo + tw.wHi * wHi;
                 dwdk = tw.wLo * dLo + tw.wHi * dHi;
                 d2wdk = tw.wLo * d2Lo + tw.wHi * d2Hi;

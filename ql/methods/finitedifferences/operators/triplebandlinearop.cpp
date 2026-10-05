@@ -25,6 +25,17 @@
 #include <ql/methods/finitedifferences/operators/fdmlinearoplayout.hpp>
 #include <ql/methods/finitedifferences/operators/triplebandlinearop.hpp>
 
+
+// The column kernels are the strip solver's inner loops.  On x86-64 Linux
+// with GCC they are also compiled for AVX2 and picked at load time; AVX2
+// without FMA keeps every column bit-identical to the scalar apply() and
+// solve_splitting().
+#if defined(__GNUC__) && !defined(__clang__) && defined(__x86_64__) && defined(__linux__)
+#define QL_COLUMN_KERNEL __attribute__((target_clones("avx2", "default")))
+#else
+#define QL_COLUMN_KERNEL
+#endif
+
 namespace QuantLib {
 
     TripleBandLinearOp::TripleBandLinearOp(
@@ -255,6 +266,79 @@ namespace QuantLib {
         return retVal;
     }
 
+
+    QL_COLUMN_KERNEL
+    void TripleBandLinearOp::apply_columns(const Matrix& r, Matrix& out) const {
+        const Size n = mesher_->layout()->size();
+        QL_REQUIRE(r.rows() == n, "inconsistent number of rows in r");
+        QL_REQUIRE(&out != &r, "apply_columns cannot work in place");
+        const Size m = r.columns();
+        if (out.rows() != n || out.columns() != m)
+            out = Matrix(n, m);
+
+        const Real* lptr = lower_.get();
+        const Real* dptr = diag_.get();
+        const Real* uptr = upper_.get();
+
+        for (Size i=0; i < n; ++i) {
+            const Real l = lptr[i], d = dptr[i], u = uptr[i];
+            const Real* __restrict r0 = r.row_begin(i0_[i]);
+            const Real* __restrict r1 = r.row_begin(i);
+            const Real* __restrict r2 = r.row_begin(i2_[i]);
+            Real* __restrict o = out.row_begin(i);
+            // same expression, in the same order, as apply()
+            for (Size j=0; j < m; ++j)
+                o[j] = r0[j]*l+r1[j]*d+r2[j]*u;
+        }
+    }
+
+    QL_COLUMN_KERNEL
+    void TripleBandLinearOp::solve_splitting_columns(Matrix& r, Real a, Real b) const {
+        const Size n = mesher_->layout()->size();
+        QL_REQUIRE(r.rows() == n, "inconsistent number of rows in rhs");
+        QL_REQUIRE(n >= 2, "at least two grid points required");
+        const Size m = r.columns();
+
+        const Real* lptr = lower_.get();
+        const Real* dptr = diag_.get();
+        const Real* uptr = upper_.get();
+        std::vector<Real> tmp(n);
+
+        // solve_splitting()'s Thomas recursion, in place, with every
+        // column as a right-hand side: bet and tmp depend on the
+        // operator only.  Row ri is read before it is overwritten.
+        Size rim1 = reverseIndex_[0];
+        Real bet=1.0/(a*dptr[rim1]+b);
+        QL_REQUIRE(bet != 0.0, "division by zero");
+        {
+            Real* __restrict x = r.row_begin(rim1);
+            for (Size k=0; k < m; ++k)
+                x[k] = x[k]*bet;
+        }
+
+        for (Size j=1; j<=n-1; j++){
+            const Size ri = reverseIndex_[j];
+            tmp[j] = a*uptr[rim1]*bet;
+
+            bet=b+a*(dptr[ri]-tmp[j]*lptr[ri]);
+            QL_ENSURE(bet != 0.0, "division by zero");
+            bet=1.0/bet;
+
+            const Real al = a*lptr[ri];
+            const Real* __restrict prev = r.row_begin(rim1);
+            Real* __restrict x = r.row_begin(ri);
+            for (Size k=0; k < m; ++k)
+                x[k] = (x[k]-al*prev[k])*bet;
+            rim1 = ri;
+        }
+        for (Size j=n-1; j>0; --j) {
+            const Real t = tmp[j];
+            const Real* __restrict next = r.row_begin(reverseIndex_[j]);
+            Real* __restrict x = r.row_begin(reverseIndex_[j-1]);
+            for (Size k=0; k < m; ++k)
+                x[k] -= t*next[k];
+        }
+    }
 
     Array TripleBandLinearOp::solve_splitting(const Array& r, Real a, Real b) const {
         QL_REQUIRE(r.size() == mesher_->layout()->size(), "inconsistent size of rhs");

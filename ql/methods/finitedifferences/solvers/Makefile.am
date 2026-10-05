@@ -11,6 +11,7 @@ this_include_HEADERS = \
 	fdmbackwardsolver.hpp \
 	fdmbatessolver.hpp \
 	fdmblackscholessolver.hpp \
+	fdmblackscholesstripsolver.hpp \
 	fdmg2solver.hpp \
 	fdmhestonhullwhitesolver.hpp \
 	fdmhestonsolver.hpp \
@@ -28,6 +29,7 @@ cpp_files = \
 	fdmbackwardsolver.cpp \
 	fdmbatessolver.cpp \
 	fdmblackscholessolver.cpp \
+	fdmblackscholesstripsolver.cpp \
 	fdmg2solver.cpp \
 	fdmhestonhullwhitesolver.cpp \
 	fdmhestonsolver.cpp \

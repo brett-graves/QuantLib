@@ -492,6 +492,7 @@ set(QL_SOURCES
     methods/finitedifferences/solvers/fdmbackwardsolver.cpp
     methods/finitedifferences/solvers/fdmbatessolver.cpp
     methods/finitedifferences/solvers/fdmblackscholessolver.cpp
+    methods/finitedifferences/solvers/fdmblackscholesstripsolver.cpp
     methods/finitedifferences/solvers/fdmg2solver.cpp
     methods/finitedifferences/solvers/fdmhestonhullwhitesolver.cpp
     methods/finitedifferences/solvers/fdmhestonsolver.cpp
@@ -789,6 +790,7 @@ set(QL_SOURCES
     pricingengines/vanilla/exponentialfittinghestonengine.cpp
     pricingengines/vanilla/fdbatesvanillaengine.cpp
     pricingengines/vanilla/fdblackscholesvanillaengine.cpp
+    pricingengines/vanilla/fdblackscholesstripengine.cpp
     pricingengines/vanilla/fdblackscholesshoutengine.cpp
     pricingengines/vanilla/fdcirvanillaengine.cpp
     pricingengines/vanilla/fdcevvanillaengine.cpp
@@ -1721,6 +1723,7 @@ set(QL_HEADERS
     methods/finitedifferences/solvers/fdmbackwardsolver.hpp
     methods/finitedifferences/solvers/fdmbatessolver.hpp
     methods/finitedifferences/solvers/fdmblackscholessolver.hpp
+    methods/finitedifferences/solvers/fdmblackscholesstripsolver.hpp
     methods/finitedifferences/solvers/fdmg2solver.hpp
     methods/finitedifferences/solvers/fdmhestonhullwhitesolver.hpp
     methods/finitedifferences/solvers/fdmhestonsolver.hpp
@@ -2083,6 +2086,7 @@ set(QL_HEADERS
     pricingengines/vanilla/exponentialfittinghestonengine.hpp
     pricingengines/vanilla/fdbatesvanillaengine.hpp
     pricingengines/vanilla/fdblackscholesvanillaengine.hpp
+    pricingengines/vanilla/fdblackscholesstripengine.hpp
     pricingengines/vanilla/fdblackscholesshoutengine.hpp
     pricingengines/vanilla/fdcirvanillaengine.hpp
     pricingengines/vanilla/fdcevvanillaengine.hpp

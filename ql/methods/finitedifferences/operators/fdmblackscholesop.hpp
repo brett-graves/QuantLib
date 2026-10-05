@@ -61,6 +61,10 @@ namespace QuantLib {
         //! summed over every setTime() call.
         Size illegalLocalVolCount() const { return illegalLocalVolCount_; }
 
+        //! The assembled operator for the interval of the last setTime(),
+        //! for solvers that roll back several right-hand sides at once.
+        const TripleBandLinearOp& map() const { return mapT_; }
+
       private:
         const ext::shared_ptr<FdmMesher> mesher_;
         const ext::shared_ptr<YieldTermStructure> rTS_, qTS_;
