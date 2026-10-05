@@ -33,9 +33,44 @@
 #include <set>
 #include <utility>
 
+#if defined(__GNUC__) && !defined(__clang__) && defined(__x86_64__) && defined(__linux__)
+#define QL_COLUMN_KERNEL __attribute__((target_clones("avx2", "default")))
+#else
+#define QL_COLUMN_KERNEL
+#endif
+
 namespace QuantLib {
 
     namespace {
+
+        // rhs = (a + dt L a) - theta dt L a, in place over w = L a
+        // (DouglasScheme's two Array expressions, element by element)
+        QL_COLUMN_KERNEL
+        void douglasRhs(const Matrix& a, Matrix& w, Real dt, Real thetaDt) {
+            const Size m = a.columns();
+            for (Size i=0; i < a.rows(); ++i) {
+                const Real* __restrict ai = a.row_begin(i);
+                Real* __restrict wi = w.row_begin(i);
+                for (Size j=0; j < m; ++j) {
+                    const Real la = wi[j];
+                    const Real y = ai[j] + dt*la;
+                    wi[j] = y - thetaDt*la;
+                }
+            }
+        }
+
+        // FdmAmericanStepCondition: a = max(a, exercise)
+        QL_COLUMN_KERNEL
+        void americanMax(Matrix& a, const Matrix& exercise) {
+            const Size m = a.columns();
+            for (Size i=0; i < a.rows(); ++i) {
+                const Real* __restrict e = exercise.row_begin(i);
+                Real* __restrict v = a.row_begin(i);
+                for (Size j=0; j < m; ++j)
+                    if (e[j] > v[j])
+                        v[j] = e[j];
+            }
+        }
 
         // FiniteDifferenceModel over a (nodes x options) matrix.  The
         // model is built from an evolver, so operator_type and bc_set are
@@ -64,25 +99,18 @@ namespace QuantLib {
                 op_->setTime(std::max(0.0, t-dt_), t);
                 const TripleBandLinearOp& map = op_->map();
 
-                const Matrix la = map.apply_columns(a);
-                const Real thetaDt = theta_*dt_;
-                Matrix rhs(a.rows(), a.columns());
-                for (Size i=0; i < a.rows(); ++i) {
-                    const Real* ai = a.row_begin(i);
-                    const Real* li = la.row_begin(i);
-                    Real* ri = rhs.row_begin(i);
-                    for (Size j=0; j < a.columns(); ++j) {
-                        const Real y = ai[j] + dt_*li[j];
-                        ri[j] = y - thetaDt*li[j];
-                    }
-                }
-                a = map.solve_splitting_columns(rhs, -theta_*dt_);
+                // work = L a, then in place rhs = (a + dt L a) - theta dt L a
+                map.apply_columns(a, work_);
+                douglasRhs(a, work_, dt_, theta_*dt_);
+                map.solve_splitting_columns(work_, -theta_*dt_);
+                a.swap(work_);
             }
 
           private:
             Time dt_;
             const Real theta_;
             const ext::shared_ptr<FdmBlackScholesOp> op_;
+            Matrix work_;
         };
 
         // The vanilla engine's composite, in its order: FdmDividendHandler
@@ -109,15 +137,8 @@ namespace QuantLib {
                         break;
                     }
                 }
-                if (american_) {
-                    for (Size i=0; i < a.rows(); ++i) {
-                        const Real* e = exercise_.row_begin(i);
-                        Real* v = a.row_begin(i);
-                        for (Size j=0; j < a.columns(); ++j)
-                            if (e[j] > v[j])
-                                v[j] = e[j];
-                    }
-                }
+                if (american_)
+                    americanMax(a, exercise_);
                 if (t == snapshotTime_)
                     snapshot_ = a;
             }
@@ -234,17 +255,23 @@ namespace QuantLib {
 
         // terminal values (cell averages) and exercise values, from the
         // vanilla engine's own inner-value calculator
+        // exercise value = payoff(exp(x_i)), FdmLogInnerValue::innerValue
+        std::vector<Real> spots(n);
+        for (Size i=0; i < n; ++i)
+            spots[i] = std::exp(x[i]);
         Matrix v(n, m), exercise(n, m);
         for (Size j=0; j < m; ++j) {
-            FdmLogInnerValue calculator(payoffs_[j], mesher, 0);
-            for (const auto& iter : *mesher->layout()) {
-                exercise[iter.index()][j] = calculator.innerValue(iter, maturity);
-                if (!exactCellAverage_)
-                    v[iter.index()][j] = calculator.avgInnerValue(iter, maturity);
-            }
-            if (exactCellAverage_)
+            const Payoff& payoff = *payoffs_[j];
+            for (Size i=0; i < n; ++i)
+                exercise[i][j] = payoff(spots[i]);
+            if (exactCellAverage_) {
                 for (Size i=0; i < n; ++i)
                     v[i][j] = exactCellAverage(*payoffs_[j], x, i);
+            } else {
+                FdmLogInnerValue calculator(payoffs_[j], mesher, 0);
+                for (const auto& iter : *mesher->layout())
+                    v[iter.index()][j] = calculator.avgInnerValue(iter, maturity);
+            }
         }
 
         // stopping times as FdmStepConditionComposite::vanillaComposite,
@@ -266,9 +293,6 @@ namespace QuantLib {
             0.99 * std::min(1.0/365.0, stops.empty() ? maturity : *stops.begin());
         stops.insert(snapshotTime);
 
-        std::vector<Real> spots(n);
-        for (Size i=0; i < n; ++i)
-            spots[i] = std::exp(x[i]);
         const StripStepCondition condition(
             spots, dividends, exercise, american_, snapshotTime);
 
