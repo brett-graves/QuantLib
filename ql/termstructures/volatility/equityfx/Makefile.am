@@ -10,7 +10,9 @@ this_include_HEADERS = \
     blackconstantvol.hpp \
     blackvariancecurve.hpp \
     blackvariancesurface.hpp \
+    blackvolsurfacedelta.hpp \
     blackvoltermstructure.hpp \
+    blackvoltimeextrapolation.hpp \
     essvihelpers.hpp \
     essvivoltermstructure.hpp \
     fixedlocalvolsurface.hpp \
@@ -27,6 +29,7 @@ this_include_HEADERS = \
     noexceptlocalvolsurface.hpp \
     parametriclocalvolsurface.hpp \
     parametricvoltermstructure.hpp \
+    piecewiseblackvariancesurface.hpp \
     scaledvoltermstructure.hpp
 
 cpp_files = \
@@ -35,7 +38,9 @@ cpp_files = \
     andreasenhugevolatilityadapter.cpp \
     blackvariancecurve.cpp \
     blackvariancesurface.cpp \
+    blackvolsurfacedelta.cpp \
     blackvoltermstructure.cpp \
+    blackvoltimeextrapolation.cpp \
     essvihelpers.cpp \
     essvivoltermstructure.cpp \
     fixedlocalvolsurface.cpp \
@@ -46,7 +51,8 @@ cpp_files = \
     mixedspotlocalvoltermstructure.cpp \
     mixedspotvoltermstructure.cpp \
     parametriclocalvolsurface.cpp \
-    parametricvoltermstructure.cpp
+    parametricvoltermstructure.cpp \
+    piecewiseblackvariancesurface.cpp
 
 if UNITY_BUILD
 

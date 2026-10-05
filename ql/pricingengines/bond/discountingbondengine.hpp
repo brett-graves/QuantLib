@@ -38,16 +38,16 @@ namespace QuantLib {
     */
     class DiscountingBondEngine : public Bond::engine {
       public:
-        DiscountingBondEngine(
+        explicit DiscountingBondEngine(
             Handle<YieldTermStructure> discountCurve = Handle<YieldTermStructure>(),
-            const ext::optional<bool>& includeSettlementDateFlows = ext::nullopt);
+            const std::optional<bool>& includeSettlementDateFlows = std::nullopt);
         void calculate() const override;
-        Handle<YieldTermStructure> discountCurve() const {
+        const Handle<YieldTermStructure>& discountCurve() const {
             return discountCurve_;
         }
       private:
         Handle<YieldTermStructure> discountCurve_;
-        ext::optional<bool> includeSettlementDateFlows_;
+        std::optional<bool> includeSettlementDateFlows_;
     };
 
 }

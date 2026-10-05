@@ -192,6 +192,7 @@ namespace QuantLib {
         // 1. Mesher
         const ext::shared_ptr<StrikedTypePayoff> payoff =
             ext::dynamic_pointer_cast<StrikedTypePayoff>(arguments_.payoff);
+        QL_REQUIRE(payoff, "non-striked payoff given");
 
         const ext::shared_ptr<FdmMesher> mesher =
             ext::make_shared<FdmMesherComposite>(equityMesher(

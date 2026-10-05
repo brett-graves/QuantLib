@@ -3,6 +3,7 @@
 /*
  Copyright (C) 2006 Klaus Spanderen
  Copyright (C) 2015 Peter Caspers
+ Copyright (C) 2026 Aaditya Panikath
 
  This file is part of QuantLib, a free-software/open-source library
  for financial quantitative analysts and developers - http://quantlib.org/
@@ -21,6 +22,7 @@
 #include <ql/math/optimization/constraint.hpp>
 #include <ql/math/optimization/lmdif.hpp>
 #include <ql/math/optimization/levenbergmarquardt.hpp>
+#include <cmath>
 #include <functional>
 #include <memory>
 
@@ -46,8 +48,8 @@ namespace QuantLib {
             P.costFunction().jacobian(initJacobian_, initX);
         }
         Array xx = initX;
-        std::unique_ptr<Real[]> fvec(new Real[m]);
-        std::unique_ptr<Real[]> diag(new Real[n]);
+        auto fvec = std::make_unique<Real[]>(m);
+        auto diag = std::make_unique<Real[]>(n);
         int mode = 1;
         // magic number recommended by the documentation
         Real factor = 100;
@@ -57,14 +59,14 @@ namespace QuantLib {
         int nprint = 0;
         int info = 0;
         int nfev = 0;
-        std::unique_ptr<Real[]> fjac(new Real[m*n]);
+        auto fjac = std::make_unique<Real[]>(m*n);
         int ldfjac = m;
-        std::unique_ptr<int[]> ipvt(new int[n]);
-        std::unique_ptr<Real[]> qtf(new Real[n]);
-        std::unique_ptr<Real[]> wa1(new Real[n]);
-        std::unique_ptr<Real[]> wa2(new Real[n]);
-        std::unique_ptr<Real[]> wa3(new Real[n]);
-        std::unique_ptr<Real[]> wa4(new Real[m]);
+        auto ipvt = std::make_unique<int[]>(n);
+        auto qtf = std::make_unique<Real[]>(n);
+        auto wa1 = std::make_unique<Real[]>(n);
+        auto wa2 = std::make_unique<Real[]>(n);
+        auto wa3 = std::make_unique<Real[]>(n);
+        auto wa4 = std::make_unique<Real[]>(m);
         // requirements; check here to get more detailed error messages.
         QL_REQUIRE(n > 0, "no variables given");
         QL_REQUIRE(m >= n,
@@ -140,30 +142,52 @@ namespace QuantLib {
     void LevenbergMarquardt::fcn(int, int n, Real* x, Real* fvec) {
         Array xt(n);
         std::copy(x, x+n, xt.begin());
-        // constraint handling needs some improvement in the future:
-        // starting point should not be close to a constraint violation
         if (currentProblem_->constraint().test(xt)) {
             const Array& tmp = currentProblem_->values(xt);
-            std::copy(tmp.begin(), tmp.end(), fvec);
-        } else {
-            std::copy(initCostValues_.begin(), initCostValues_.end(), fvec);
+            bool valid = true;
+            for (Real i : tmp) {
+                if (!std::isfinite(i)) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (valid) {
+                std::copy(tmp.begin(), tmp.end(), fvec);
+                return;
+            }
         }
+        // Constraint violated or evaluation produced non-finite values:
+        // return a large, uniform penalty so the optimizer steers away.
+        // A fixed constant is used instead of the initial cost values because
+        // the latter can be very small (even zero) when the starting point is
+        // near-optimal, which would fail to deter the optimizer from exploring
+        // infeasible regions.
+        std::fill(fvec, fvec + initCostValues_.size(), 1.0e10);
     }
 
     void LevenbergMarquardt::jacFcn(int m, int n, Real* x, Real* fjac) {
         Array xt(n);
         std::copy(x, x+n, xt.begin());
-        // constraint handling needs some improvement in the future:
-        // starting point should not be close to a constraint violation
         if (currentProblem_->constraint().test(xt)) {
             Matrix tmp(m,n);
             currentProblem_->costFunction().jacobian(tmp, xt);
-            Matrix tmpT = transpose(tmp);
-            std::copy(tmpT.begin(), tmpT.end(), fjac);
-        } else {
-            Matrix tmpT = transpose(initJacobian_);
-            std::copy(tmpT.begin(), tmpT.end(), fjac);
+            bool valid = true;
+            for (Real & it : tmp) {
+                if (!std::isfinite(it)) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (valid) {
+                Matrix tmpT = transpose(tmp);
+                std::copy(tmpT.begin(), tmpT.end(), fjac);
+                return;
+            }
         }
+        // Constraint violated or Jacobian produced non-finite values:
+        // return initial Jacobian so the optimizer doesn't diverge
+        Matrix tmpT = transpose(initJacobian_);
+        std::copy(tmpT.begin(), tmpT.end(), fjac);
     }
 
 }

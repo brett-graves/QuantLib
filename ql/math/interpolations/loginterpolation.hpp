@@ -46,10 +46,11 @@ namespace QuantLib {
         /*! \pre the \f$ x \f$ values must be sorted. */
         template <class I1, class I2>
         LogLinearInterpolation(const I1& xBegin, const I1& xEnd,
-                               const I2& yBegin) {
+                               const I2& yBegin, bool update = true) {
             impl_ = ext::make_shared<detail::LogInterpolationImpl<I1, I2>>(
                 xBegin, xEnd, yBegin, Linear());
-            impl_->update();
+            if (update)
+                impl_->update();
         }
     };
 
@@ -59,8 +60,8 @@ namespace QuantLib {
       public:
         template <class I1, class I2>
         Interpolation interpolate(const I1& xBegin, const I1& xEnd,
-                                  const I2& yBegin) const {
-            return LogLinearInterpolation(xBegin, xEnd, yBegin);
+                                  const I2& yBegin, bool update = true) const {
+            return LogLinearInterpolation(xBegin, xEnd, yBegin, update);
         }
         static const bool global = false;
         static const Size requiredPoints = 2;
@@ -79,13 +80,15 @@ namespace QuantLib {
                               CubicInterpolation::BoundaryCondition leftC,
                               Real leftConditionValue,
                               CubicInterpolation::BoundaryCondition rightC,
-                              Real rightConditionValue) {
+                              Real rightConditionValue,
+                              bool update = true) {
             impl_ = ext::make_shared<detail::LogInterpolationImpl<I1, I2>>(
                 xBegin, xEnd, yBegin,
                 Cubic(da, monotonic,
                       leftC, leftConditionValue,
                       rightC, rightConditionValue));
-            impl_->update();
+            if (update)
+                impl_->update();
         }
     };
 
@@ -93,24 +96,24 @@ namespace QuantLib {
     /*! \ingroup interpolations */
     class LogCubic {
       public:
-        LogCubic(CubicInterpolation::DerivativeApprox da,
-                  bool monotonic = true,
-                  CubicInterpolation::BoundaryCondition leftCondition
-                      = CubicInterpolation::SecondDerivative,
-                  Real leftConditionValue = 0.0,
-                  CubicInterpolation::BoundaryCondition rightCondition
-                      = CubicInterpolation::SecondDerivative,
-                  Real rightConditionValue = 0.0)
+        explicit LogCubic(CubicInterpolation::DerivativeApprox da,
+                          bool monotonic = true,
+                          CubicInterpolation::BoundaryCondition leftCondition
+                              = CubicInterpolation::SecondDerivative,
+                          Real leftConditionValue = 0.0,
+                          CubicInterpolation::BoundaryCondition rightCondition
+                              = CubicInterpolation::SecondDerivative,
+                          Real rightConditionValue = 0.0)
         : da_(da), monotonic_(monotonic),
           leftType_(leftCondition), rightType_(rightCondition),
           leftValue_(leftConditionValue), rightValue_(rightConditionValue) {}
         template <class I1, class I2>
         Interpolation interpolate(const I1& xBegin, const I1& xEnd,
-                                  const I2& yBegin) const {
+                                  const I2& yBegin, bool update = true) const {
             return LogCubicInterpolation(xBegin, xEnd, yBegin,
                                          da_, monotonic_,
                                          leftType_, leftValue_,
-                                         rightType_, rightValue_);
+                                         rightType_, rightValue_, update);
         }
         static const bool global = true;
         static const Size requiredPoints = 2;
@@ -123,7 +126,10 @@ namespace QuantLib {
 
     // convenience classes
 
-    class DefaultLogCubic : public LogCubic {
+    /*! \deprecated Use KrugerLog instead.
+                    Deprecated in version 1.42.
+    */
+    class [[deprecated("Use KrugerLog instead")]] DefaultLogCubic : public LogCubic {
       public:
         DefaultLogCubic()
         : LogCubic(CubicInterpolation::Kruger) {}
@@ -251,13 +257,15 @@ namespace QuantLib {
                                          CubicInterpolation::BoundaryCondition leftC,
                                          Real leftConditionValue,
                                          CubicInterpolation::BoundaryCondition rightC,
-                                         Real rightConditionValue) {
+                                         Real rightConditionValue,
+                                         bool update = true) {
             impl_ = ext::make_shared<detail::LogInterpolationImpl<I1, I2>>(
                 xBegin, xEnd, yBegin,
                 MixedLinearCubic(n, behavior, da, monotonic,
                                  leftC, leftConditionValue,
                                  rightC, rightConditionValue));
-            impl_->update();
+            if (update)
+                impl_->update();
         }
     };
 
@@ -280,12 +288,13 @@ namespace QuantLib {
           leftValue_(leftConditionValue), rightValue_(rightConditionValue) {}
         template <class I1, class I2>
         Interpolation interpolate(const I1& xBegin, const I1& xEnd,
-                                  const I2& yBegin) const {
+                                  const I2& yBegin, bool update = true) const {
             return LogMixedLinearCubicInterpolation(xBegin, xEnd, yBegin,
                                                     n_, behavior_,
                                                     da_, monotonic_,
                                                     leftType_, leftValue_,
-                                                    rightType_, rightValue_);
+                                                    rightType_, rightValue_,
+                                                    update);
         }
         static const bool global = true;
         static const Size requiredPoints = 3;
@@ -300,7 +309,11 @@ namespace QuantLib {
 
     // convenience classes
     
-    class DefaultLogMixedLinearCubic : public LogMixedLinearCubic {
+    /*! \deprecated Use KrugerLogMixedLinearCubic instead.
+                    Deprecated in version 1.42.
+    */
+    class [[deprecated("Use KrugerLogMixedLinearCubic instead")]] DefaultLogMixedLinearCubic
+        : public LogMixedLinearCubic {
       public:
         explicit DefaultLogMixedLinearCubic(const Size n,
                                             MixedInterpolation::Behavior behavior
@@ -350,7 +363,7 @@ namespace QuantLib {
     namespace detail {
 
         template <class I1, class I2>
-        class LogInterpolationImpl
+        class LogInterpolationImpl final
             : public Interpolation::templateImpl<I1, I2> {
           public:
             template <class Interpolator>
@@ -360,9 +373,8 @@ namespace QuantLib {
             : Interpolation::templateImpl<I1, I2>(xBegin, xEnd, yBegin,
                                                   Interpolator::requiredPoints),
               logY_(xEnd-xBegin) {
-                interpolation_ = factory.interpolate(this->xBegin_,
-                                                     this->xEnd_,
-                                                     logY_.begin());
+                interpolation_ = detail::interpolateWithoutUpdate(
+                    factory, this->xBegin_, this->xEnd_, logY_.begin());
             }
             void update() override {
                 for (Size i=0; i<logY_.size(); ++i) {

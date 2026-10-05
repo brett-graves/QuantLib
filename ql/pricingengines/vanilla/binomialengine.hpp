@@ -92,14 +92,11 @@ namespace QuantLib {
 
         // binomial trees with constant coefficient
         Handle<YieldTermStructure> flatRiskFree(
-            ext::shared_ptr<YieldTermStructure>(
-                new FlatForward(referenceDate, r, rfdc)));
+            ext::make_shared<FlatForward>(referenceDate, r, rfdc));
         Handle<YieldTermStructure> flatDividends(
-            ext::shared_ptr<YieldTermStructure>(
-                new FlatForward(referenceDate, q, divdc)));
+            ext::make_shared<FlatForward>(referenceDate, q, divdc));
         Handle<BlackVolTermStructure> flatVol(
-            ext::shared_ptr<BlackVolTermStructure>(
-                new BlackConstantVol(referenceDate, volcal, v, voldc)));
+            ext::make_shared<BlackConstantVol>(referenceDate, volcal, v, voldc));
 
         ext::shared_ptr<PlainVanillaPayoff> payoff =
             ext::dynamic_pointer_cast<PlainVanillaPayoff>(arguments_.payoff);
@@ -107,18 +104,16 @@ namespace QuantLib {
 
         Time maturity = rfdc.yearFraction(referenceDate, maturityDate);
 
-        ext::shared_ptr<StochasticProcess1D> bs(
-                         new GeneralizedBlackScholesProcess(
+        auto bs = ext::make_shared<GeneralizedBlackScholesProcess>(
                                       process_->stateVariable(),
-                                      flatDividends, flatRiskFree, flatVol));
+                                      flatDividends, flatRiskFree, flatVol);
 
         TimeGrid grid(maturity, timeSteps_);
 
-        ext::shared_ptr<T> tree(new T(bs, maturity, timeSteps_,
-                                        payoff->strike()));
+        auto tree = ext::make_shared<T>(bs, maturity, timeSteps_,
+                                        payoff->strike());
 
-        ext::shared_ptr<BlackScholesLattice<T> > lattice(
-            new BlackScholesLattice<T>(tree, r, maturity, timeSteps_));
+        auto lattice = ext::make_shared<BlackScholesLattice<T>>(tree, r, maturity, timeSteps_);
 
         DiscretizedVanillaOption option(arguments_, *process_, grid);
 
@@ -140,10 +135,18 @@ namespace QuantLib {
         Real s2m = lattice->underlying(2, 1); // middle price
         Real s2d = lattice->underlying(2, 0); // down (low) price
 
-        // calculate gamma by taking the first derivate of the two deltas
-        Real delta2u = (p2u - p2m)/(s2u-s2m);
-        Real delta2d = (p2m-p2d)/(s2m-s2d);
-        Real gamma = (delta2u - delta2d) / ((s2u-s2d)/2);
+        // A tree whose up and down factors round to the same double puts every
+        // node of a step at one price, so these differences are zero and the
+        // ratios are not numbers. The rolled back value is kept, the greeks absent.
+        Real gamma;
+        if (s2u > s2m && s2m > s2d) {
+            // calculate gamma by taking the first derivate of the two deltas
+            Real delta2u = (p2u - p2m)/(s2u-s2m);
+            Real delta2d = (p2m-p2d)/(s2m-s2d);
+            gamma = (delta2u - delta2d) / ((s2u-s2d)/2);
+        } else {
+            gamma = Null<Real>();
+        }
 
         // Rollback to second-last step, and get option values (p1) at
         // this point
@@ -155,7 +158,7 @@ namespace QuantLib {
         Real s1u = lattice->underlying(1, 1); // up (high) price
         Real s1d = lattice->underlying(1, 0); // down (low) price
 
-        Real delta = (p1u - p1d) / (s1u - s1d);
+        Real delta = (s1u > s1d) ? (p1u - p1d) / (s1u - s1d) : Null<Real>();
 
         // Finally, rollback to t=0
         option.rollback(0.0);
@@ -165,10 +168,12 @@ namespace QuantLib {
         results_.value = p0;
         results_.delta = delta;
         results_.gamma = gamma;
-        results_.theta = blackScholesTheta(process_,
-                                           results_.value,
-                                           results_.delta,
-                                           results_.gamma);
+        results_.theta = (delta == Null<Real>() || gamma == Null<Real>())
+                             ? Null<Real>()
+                             : blackScholesTheta(process_,
+                                                 results_.value,
+                                                 results_.delta,
+                                                 results_.gamma);
     }
 
 }

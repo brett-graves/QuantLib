@@ -25,6 +25,10 @@ this_include_HEADERS = \
     cpicapfloor.hpp \
     cpiswap.hpp \
     creditdefaultswap.hpp \
+    crosscurrencyswap.hpp \
+    constnotionalcrosscurrencybasisswap.hpp \
+    constnotionalcrosscurrencyfixedvsfloatingswap.hpp \
+    constnotionalcrosscurrencyswap.hpp \
     dividendschedule.hpp \
     doublebarrieroption.hpp \
     doublebarriertype.hpp \
@@ -37,6 +41,7 @@ this_include_HEADERS = \
     forwardrateagreement.hpp \
     forwardvanillaoption.hpp \
     futures.hpp \
+    fxforward.hpp \
     holderextensibleoption.hpp \
     impliedvolatility.hpp \
     inflationcapfloor.hpp \
@@ -44,12 +49,14 @@ this_include_HEADERS = \
     makecapfloor.hpp \
     makecds.hpp \
     makecms.hpp \
+    makemultipleresetsswap.hpp \
     makeois.hpp \
     makeswaption.hpp \
     makevanillaswap.hpp \
     makeyoyinflationcapfloor.hpp \
     margrabeoption.hpp \
     multiassetoption.hpp \
+    multipleresetsswap.hpp \
     nonstandardswap.hpp \
     nonstandardswaption.hpp \
     oneassetoption.hpp \
@@ -99,6 +106,9 @@ cpp_files = \
     cpicapfloor.cpp \
     cpiswap.cpp \
     creditdefaultswap.cpp \
+    crosscurrencyswap.cpp \
+    constnotionalcrosscurrencybasisswap.cpp \
+    constnotionalcrosscurrencyfixedvsfloatingswap.cpp \
     doublebarrieroption.cpp \
     doublebarriertype.cpp \
     equitytotalreturnswap.cpp \
@@ -110,6 +120,7 @@ cpp_files = \
     forwardrateagreement.cpp \
     forwardvanillaoption.cpp \
     futures.cpp \
+    fxforward.cpp \
     holderextensibleoption.cpp \
     impliedvolatility.cpp \
     inflationcapfloor.cpp \
@@ -117,12 +128,14 @@ cpp_files = \
     makecapfloor.cpp \
     makecds.cpp \
     makecms.cpp \
+    makemultipleresetsswap.cpp \
     makeois.cpp \
     makeswaption.cpp \
     makevanillaswap.cpp \
     makeyoyinflationcapfloor.cpp \
     margrabeoption.cpp \
     multiassetoption.cpp \
+    multipleresetsswap.cpp \
     nonstandardswap.cpp \
     nonstandardswaption.cpp \
     oneassetoption.cpp \

@@ -7,9 +7,11 @@
 #include <ql/termstructures/volatility/equityfx/blackconstantvol.hpp>
 #include <ql/termstructures/volatility/equityfx/blackvariancecurve.hpp>
 #include <ql/termstructures/volatility/equityfx/blackvariancesurface.hpp>
+#include <ql/termstructures/volatility/equityfx/blackvolsurfacedelta.hpp>
 #include <ql/termstructures/volatility/equityfx/blackvoltermstructure.hpp>
 #include <ql/termstructures/volatility/equityfx/essvihelpers.hpp>
 #include <ql/termstructures/volatility/equityfx/essvivoltermstructure.hpp>
+#include <ql/termstructures/volatility/equityfx/blackvoltimeextrapolation.hpp>
 #include <ql/termstructures/volatility/equityfx/fixedlocalvolsurface.hpp>
 #include <ql/termstructures/volatility/equityfx/gridmodellocalvolsurface.hpp>
 #include <ql/termstructures/volatility/equityfx/hestonblackvolsurface.hpp>
@@ -25,4 +27,5 @@
 #include <ql/termstructures/volatility/equityfx/parametriclocalvolsurface.hpp>
 #include <ql/termstructures/volatility/equityfx/parametricvoltermstructure.hpp>
 #include <ql/termstructures/volatility/equityfx/pwlpdfblackvolsurface.hpp>
+#include <ql/termstructures/volatility/equityfx/piecewiseblackvariancesurface.hpp>
 

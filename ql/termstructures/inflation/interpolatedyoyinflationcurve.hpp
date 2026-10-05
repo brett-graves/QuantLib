@@ -120,7 +120,6 @@ namespace QuantLib {
 
         this->setupTimes(dates_, referenceDate, dayCounter);
         this->setupInterpolation();
-        this->interpolation_.update();
     }
 
     template <class Interpolator>
@@ -139,6 +138,8 @@ namespace QuantLib {
 
     template <class T>
     Date InterpolatedYoYInflationCurve<T>::maxDate() const {
+        if (this->maxDate_ != Date())
+            return this->maxDate_;
         return dates_.back();
     }
 

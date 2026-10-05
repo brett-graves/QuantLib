@@ -35,6 +35,7 @@ namespace QuantLib {
     */
     class FlatExtrapolator2D : public Interpolation2D {
       public:
+        // TODO: Review whether this constructor should remain implicit.
         FlatExtrapolator2D(const ext::shared_ptr<Interpolation2D>& decoratedInterpolation) {
             impl_ = ext::shared_ptr<Interpolation2D::Impl>(
                   new FlatExtrapolator2DImpl(decoratedInterpolation));
@@ -42,7 +43,7 @@ namespace QuantLib {
       protected:
        class FlatExtrapolator2DImpl: public Interpolation2D::Impl{
           public:
-            FlatExtrapolator2DImpl(ext::shared_ptr<Interpolation2D> decoratedInterpolation)
+            explicit FlatExtrapolator2DImpl(ext::shared_ptr<Interpolation2D> decoratedInterpolation)
             : decoratedInterp_(std::move(decoratedInterpolation)) {
                 FlatExtrapolator2DImpl::calculate();
             }
@@ -58,10 +59,9 @@ namespace QuantLib {
             bool isInRange(Real x, Real y) const override {
                 return decoratedInterp_->isInRange(x,y);
             }
-            void update() {
+            void calculate() override {
                 decoratedInterp_->update();
             }
-            void calculate() override {}
             Real value(Real x, Real y) const override {
                 x = bindX(x);
                 y = bindY(y);

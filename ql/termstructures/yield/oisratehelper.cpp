@@ -45,8 +45,8 @@ namespace QuantLib {
         Pillar::Choice pillar,
         Date customPillarDate,
         RateAveraging::Type averagingMethod,
-        ext::optional<bool> endOfMonth,
-        ext::optional<Frequency> fixedPaymentFrequency,
+        std::optional<bool> endOfMonth,
+        std::optional<Frequency> fixedPaymentFrequency,
         Calendar fixedCalendar,
         Natural lookbackDays,
         Natural lockoutDays,
@@ -54,7 +54,8 @@ namespace QuantLib {
         ext::shared_ptr<FloatingRateCouponPricer> pricer,
         DateGeneration::Rule rule,
         Calendar overnightCalendar,
-        BusinessDayConvention convention)
+        BusinessDayConvention convention,
+        DayCounter fixedDayCount)
     : RelativeDateRateHelper(fixedRate), settlementDays_(settlementDays), tenor_(tenor),
       discountHandle_(std::move(discount)), telescopicValueDates_(telescopicValueDates),
       paymentLag_(paymentLag), paymentConvention_(paymentConvention),
@@ -63,7 +64,7 @@ namespace QuantLib {
       averagingMethod_(averagingMethod), endOfMonth_(endOfMonth),
       fixedPaymentFrequency_(fixedPaymentFrequency), fixedCalendar_(std::move(fixedCalendar)),
       overnightCalendar_(std::move(overnightCalendar)), convention_(convention),
-      lookbackDays_(lookbackDays), lockoutDays_(lockoutDays),
+      fixedDayCount_(std::move(fixedDayCount)), lookbackDays_(lookbackDays), lockoutDays_(lockoutDays),
       applyObservationShift_(applyObservationShift), pricer_(std::move(pricer)), rule_(rule) {
         initialize(overnightIndex, customPillarDate);
     }
@@ -83,8 +84,8 @@ namespace QuantLib {
         Pillar::Choice pillar,
         Date customPillarDate,
         RateAveraging::Type averagingMethod,
-        ext::optional<bool> endOfMonth,
-        ext::optional<Frequency> fixedPaymentFrequency,
+        std::optional<bool> endOfMonth,
+        std::optional<Frequency> fixedPaymentFrequency,
         Calendar fixedCalendar,
         Natural lookbackDays,
         Natural lockoutDays,
@@ -92,7 +93,8 @@ namespace QuantLib {
         ext::shared_ptr<FloatingRateCouponPricer> pricer,
         DateGeneration::Rule rule,
         Calendar overnightCalendar,
-        BusinessDayConvention convention)
+        BusinessDayConvention convention,
+        DayCounter fixedDayCount)
     : RelativeDateRateHelper(fixedRate, false), startDate_(startDate), endDate_(endDate),
       discountHandle_(std::move(discount)), telescopicValueDates_(telescopicValueDates),
       paymentLag_(paymentLag), paymentConvention_(paymentConvention),
@@ -101,7 +103,7 @@ namespace QuantLib {
       averagingMethod_(averagingMethod), endOfMonth_(endOfMonth),
       fixedPaymentFrequency_(fixedPaymentFrequency), fixedCalendar_(std::move(fixedCalendar)),
       overnightCalendar_(std::move(overnightCalendar)), convention_(convention),
-      lookbackDays_(lookbackDays), lockoutDays_(lockoutDays),
+      fixedDayCount_(std::move(fixedDayCount)), lookbackDays_(lookbackDays), lockoutDays_(lockoutDays),
       applyObservationShift_(applyObservationShift), pricer_(std::move(pricer)), rule_(rule) {
         initialize(overnightIndex, customPillarDate);
     }
@@ -129,9 +131,10 @@ namespace QuantLib {
         //    i.e. it can dynamically change
         // 2. input discount curve Handle might be empty now but it could
         //    be assigned a curve later; use a RelinkableHandle here
-        auto tmp = MakeOIS(tenor_, overnightIndex_, 0.0, forwardStart_)
+        auto tmp = MakeOIS(tenor_, overnightIndex_)
+            .withFixedRate(0.0)
+            .withForwardStart(forwardStart_)
             .withDiscountingTermStructure(discountRelinkableHandle_)
-            .withSettlementDays(settlementDays_)  // resets effectiveDate
             .withEffectiveDate(startDate_)
             .withTerminationDate(endDate_)
             .withTelescopicValueDates(telescopicValueDates_)
@@ -155,9 +158,15 @@ namespace QuantLib {
         if (!fixedCalendar_.empty()) {
             tmp.withFixedLegCalendar(fixedCalendar_);
         }
+        if (!fixedDayCount_.empty()) {
+            tmp.withFixedLegDayCount(fixedDayCount_);
+        }
         if (!overnightCalendar_.empty()) {
             tmp.withOvernightLegCalendar(overnightCalendar_);
         }
+        // only set settlementDays when no explicit start date, to avoid conflict
+        if (startDate_ == Date() && settlementDays_ != Null<Natural>())
+            tmp.withSettlementDays(settlementDays_);
         swap_ = tmp;
 
         if (pricer_)

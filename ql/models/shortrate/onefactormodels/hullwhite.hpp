@@ -41,15 +41,12 @@ namespace QuantLib {
 
         \test calibration results are tested against cached values
 
-        \bug When the term structure is relinked, the r0 parameter of
-             the underlying Vasicek model is not updated.
-
         \ingroup shortrate
     */
     class HullWhite : public Vasicek, public TermStructureConsistentModel {
       public:
-        HullWhite(const Handle<YieldTermStructure>& termStructure,
-                  Real a = 0.1, Real sigma = 0.01);
+        explicit HullWhite(const Handle<YieldTermStructure>& termStructure,
+                           Real a = 0.1, Real sigma = 0.01);
 
         ext::shared_ptr<Lattice> tree(const TimeGrid& grid) const override;
 
@@ -169,4 +166,3 @@ namespace QuantLib {
 
 
 #endif
-

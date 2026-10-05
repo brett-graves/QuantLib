@@ -4,6 +4,7 @@
 #include <ql/termstructures/yield/bondhelpers.hpp>
 #include <ql/termstructures/yield/bootstraptraits.hpp>
 #include <ql/termstructures/yield/compositezeroyieldstructure.hpp>
+#include <ql/termstructures/yield/derivedtermstructure.hpp>
 #include <ql/termstructures/yield/discountcurve.hpp>
 #include <ql/termstructures/yield/fittedbonddiscountcurve.hpp>
 #include <ql/termstructures/yield/flatforward.hpp>
@@ -14,6 +15,7 @@
 #include <ql/termstructures/yield/jumpedyieldtermstructure.hpp>
 #include <ql/termstructures/yield/rescaledtimetermstructure.hpp>
 #include <ql/termstructures/yield/interpolatedsimplezerocurve.hpp>
+#include <ql/termstructures/yield/multipleresetsswaphelper.hpp>
 #include <ql/termstructures/yield/nonlinearfittingmethods.hpp>
 #include <ql/termstructures/yield/oisratehelper.hpp>
 #include <ql/termstructures/yield/overnightindexfutureratehelper.hpp>

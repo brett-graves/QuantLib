@@ -231,6 +231,38 @@ namespace QuantLib {
                 || (d == 20 && m == October))
                 return false;
         }
+
+        // https://api2.sgx.com/sites/default/files/2026-01/SGX%20Calendar%202026_2.pdf
+        if (y == 2026)
+        {
+            if (// Chinese New Year
+                ((d == 17 || d == 18) && m == February)
+                // Hari Raya Puasa
+                || (d == 20 && m == March)
+                // Hari Raya Haji
+                || (d == 27 && m == May)
+                // Vesak Day (Sunday May 31st, observed Monday June 1st)
+                || (d == 1 && m == June)
+                // Deepavali (Sunday Nov 8th, observed Monday Nov 9th)
+                || (d == 9 && m == November))
+                return false;
+        }
+
+        // https://data.gov.sg/datasets/d_0ba69fc6d56717ff0bf8083c6af3bb84/view
+        if (y == 2027)
+        {
+            if (// Chinese New Year (Sat/Sun 6-7 Feb, observed Monday 8 Feb)
+                (d == 8 && m == February)
+                // Hari Raya Puasa
+                || (d == 10 && m == March)
+                // Hari Raya Haji
+                || (d == 17 && m == May)
+                // Vesak Day
+                || (d == 20 && m == May)
+                // Deepavali
+                || (d == 28 && m == October))
+                return false;
+        }
         return true;
     }
 
