@@ -27,7 +27,8 @@ this_include_HEADERS = \
     noexceptlocalvolsurface.hpp \
     parametriclocalvolsurface.hpp \
     parametricvoltermstructure.hpp \
-    scaledvoltermstructure.hpp
+    scaledvoltermstructure.hpp \
+    splinesmilevolsurface.hpp
 
 cpp_files = \
     andreasenhugelocalvoladapter.cpp \
@@ -46,7 +47,8 @@ cpp_files = \
     mixedspotlocalvoltermstructure.cpp \
     mixedspotvoltermstructure.cpp \
     parametriclocalvolsurface.cpp \
-    parametricvoltermstructure.cpp
+    parametricvoltermstructure.cpp \
+    splinesmilevolsurface.cpp
 
 if UNITY_BUILD
 

@@ -25,4 +25,5 @@
 #include <ql/termstructures/volatility/equityfx/parametriclocalvolsurface.hpp>
 #include <ql/termstructures/volatility/equityfx/parametricvoltermstructure.hpp>
 #include <ql/termstructures/volatility/equityfx/pwlpdfblackvolsurface.hpp>
+#include <ql/termstructures/volatility/equityfx/splinesmilevolsurface.hpp>
 
