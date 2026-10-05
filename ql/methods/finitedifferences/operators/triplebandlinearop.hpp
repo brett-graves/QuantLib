@@ -27,6 +27,7 @@
 #ifndef quantlib_triple_band_linear_op_hpp
 #define quantlib_triple_band_linear_op_hpp
 
+#include <ql/math/matrix.hpp>
 #include <ql/methods/finitedifferences/operators/fdmlinearop.hpp>
 #include <memory>
 
@@ -47,6 +48,13 @@ namespace QuantLib {
 
         Array apply(const Array& r) const override;
         Array solve_splitting(const Array& r, Real a, Real b = 1.0) const;
+
+        //! apply() to every column of a (layout size x m) matrix.
+        Matrix apply_columns(const Matrix& r) const;
+        //! solve_splitting() for every column of a (layout size x m)
+        //! matrix; the Thomas factorisation is computed once and shared.
+        //! Each column is bit-identical to solve_splitting() on it.
+        Matrix solve_splitting_columns(const Matrix& r, Real a, Real b = 1.0) const;
 
         TripleBandLinearOp mult(const Array& u) const;
         // interpret u as the diagonal of a diagonal matrix, multiplied on LHS

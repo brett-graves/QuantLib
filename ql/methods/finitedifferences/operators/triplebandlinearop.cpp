@@ -253,6 +253,87 @@ namespace QuantLib {
     }
 
 
+    Matrix TripleBandLinearOp::apply_columns(const Matrix& r) const {
+        const Size n = mesher_->layout()->size();
+        QL_REQUIRE(r.rows() == n, "inconsistent number of rows in r");
+        const Size m = r.columns();
+
+        const Real* lptr = lower_.get();
+        const Real* dptr = diag_.get();
+        const Real* uptr = upper_.get();
+
+        Matrix retVal(n, m);
+        for (Size i=0; i < n; ++i) {
+            const Real* r0 = r.row_begin(i0_[i]);
+            const Real* r1 = r.row_begin(i);
+            const Real* r2 = r.row_begin(i2_[i]);
+            Real* out = retVal.row_begin(i);
+            // same expression, in the same order, as apply()
+            for (Size j=0; j < m; ++j)
+                out[j] = r0[j]*lptr[i]+r1[j]*dptr[i]+r2[j]*uptr[i];
+        }
+        return retVal;
+    }
+
+    Matrix TripleBandLinearOp::solve_splitting_columns(const Matrix& r, Real a, Real b) const {
+        const Size n = mesher_->layout()->size();
+        QL_REQUIRE(r.rows() == n, "inconsistent number of rows in rhs");
+        QL_REQUIRE(n >= 2, "at least two grid points required");
+        const Size m = r.columns();
+
+        const Real* lptr = lower_.get();
+        const Real* dptr = diag_.get();
+        const Real* uptr = upper_.get();
+
+        Matrix retVal(n, m);
+        std::vector<Real> tmp(n);
+
+        // solve_splitting()'s Thomas recursion with every column as a
+        // right-hand side: bet and tmp depend on the operator only.
+        Size rim1 = reverseIndex_[0];
+        Real bet=1.0/(a*dptr[rim1]+b);
+        QL_REQUIRE(bet != 0.0, "division by zero");
+        {
+            const Real* rr = r.row_begin(rim1);
+            Real* out = retVal.row_begin(reverseIndex_[0]);
+            for (Size k=0; k < m; ++k)
+                out[k] = rr[k]*bet;
+        }
+
+        for (Size j=1; j<=n-1; j++){
+            const Size ri = reverseIndex_[j];
+            tmp[j] = a*uptr[rim1]*bet;
+
+            bet=b+a*(dptr[ri]-tmp[j]*lptr[ri]);
+            QL_ENSURE(bet != 0.0, "division by zero");
+            bet=1.0/bet;
+
+            const Real al = a*lptr[ri];
+            const Real* rr = r.row_begin(ri);
+            const Real* prev = retVal.row_begin(rim1);
+            Real* out = retVal.row_begin(ri);
+            for (Size k=0; k < m; ++k)
+                out[k] = (rr[k]-al*prev[k])*bet;
+            rim1 = ri;
+        }
+        for (Size j=n-2; j>0; --j) {
+            const Real t = tmp[j+1];
+            const Real* next = retVal.row_begin(reverseIndex_[j+1]);
+            Real* out = retVal.row_begin(reverseIndex_[j]);
+            for (Size k=0; k < m; ++k)
+                out[k] -= t*next[k];
+        }
+        {
+            const Real t = tmp[1];
+            const Real* next = retVal.row_begin(reverseIndex_[1]);
+            Real* out = retVal.row_begin(reverseIndex_[0]);
+            for (Size k=0; k < m; ++k)
+                out[k] -= t*next[k];
+        }
+
+        return retVal;
+    }
+
     Array TripleBandLinearOp::solve_splitting(const Array& r, Real a, Real b) const {
         QL_REQUIRE(r.size() == mesher_->layout()->size(), "inconsistent size of rhs");
 
