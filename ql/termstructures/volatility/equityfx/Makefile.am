@@ -30,6 +30,7 @@ this_include_HEADERS = \
     noexceptlocalvolsurface.hpp \
     parametriclocalvolsurface.hpp \
     parametricvoltermstructure.hpp \
+    puredividend.hpp \
     piecewiseblackvariancesurface.hpp \
     scaledvoltermstructure.hpp
 
@@ -54,6 +55,7 @@ cpp_files = \
     mixedspotvoltermstructure.cpp \
     parametriclocalvolsurface.cpp \
     parametricvoltermstructure.cpp \
+    puredividend.cpp \
     piecewiseblackvariancesurface.cpp
 
 if UNITY_BUILD

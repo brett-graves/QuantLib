@@ -80,14 +80,15 @@ namespace QuantLib {
     Volatility ParametricLocalVolSurface::localVolImpl(
             Time t, Real underlyingLevel) const {
         if (t < 1e-14) t = 1e-14;
-        // Forward at t — uses the local-vol surface's own r/q/S handles.
-        // Caller is responsible for passing the same handles used by the
-        // underlying parametric surface so the two forwards agree.
-        DiscountFactor dr = riskFreeRate_->discount(t, true);
-        DiscountFactor dq = dividendYield_->discount(t, true);
-        Real fwd = spot_->value() * dq / dr;
-        Real k = std::log(underlyingLevel / fwd);
-        return blackSurface_->localVol(k, t);
+        // The coordinate comes from the Black surface itself, so its cash
+        // dividends (forward, and D(t) in pure mode) are the ones the slices
+        // were built against; a forward rebuilt here from S Dq/Dr drops them.
+        const Real d =
+            blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
+        if (d != 0.0 && underlyingLevel <= d)
+            return 0.0;
+        const Real x = blackSurface_->coordinate(t, underlyingLevel);
+        return blackSurface_->localVol(x, t) * (underlyingLevel - d) / underlyingLevel;
     }
 
     Size ParametricLocalVolSurface::localVolSlice(
@@ -99,16 +100,28 @@ namespace QuantLib {
         checkRange(t, true);
         // localVolImpl() for every point, with the forward taken once.
         if (t < 1e-14) t = 1e-14;
-        DiscountFactor dr = riskFreeRate_->discount(t, true);
-        DiscountFactor dq = dividendYield_->discount(t, true);
-        Real fwd = spot_->value() * dq / dr;
-        for (Size j = 0; j < n; ++j)
-            out[j] = std::log(underlyingLevels[j] / fwd);
+        // Forward and D(t) once per time, as localVolImpl() takes them.
+        const Real fwd = blackSurface_->forward(t);
+        const Real d =
+            blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
+        QL_REQUIRE(fwd > d, "localVolSlice: forward " << fwd << " not above D(t)=" << d);
+        for (Size j = 0; j < n; ++j) {
+            const Real s = underlyingLevels[j];
+            // Below D(t) the pure spot cannot go: any finite x, zeroed below.
+            out[j] = s > d ? std::log((s - d) / (fwd - d)) : 0.0;
+        }
         Size nIllegal =
             blackSurface_->localVarianceSlice(t, out.begin(), n, out.begin());
-        for (Size j = 0; j < n; ++j)
-            if (out[j] != Null<Real>())
-                out[j] = std::sqrt(out[j]);
+        for (Size j = 0; j < n; ++j) {
+            const Real s = underlyingLevels[j];
+            if (d != 0.0 && s <= d) {
+                if (out[j] == Null<Real>())
+                    --nIllegal;
+                out[j] = 0.0;
+            } else if (out[j] != Null<Real>()) {
+                out[j] = std::sqrt(out[j]) * (s - d) / s;
+            }
+        }
         return nIllegal;
     }
 

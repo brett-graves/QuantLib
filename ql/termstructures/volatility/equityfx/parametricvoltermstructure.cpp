@@ -19,6 +19,7 @@
 
 #include <ql/termstructures/volatility/equityfx/parametricvoltermstructure.hpp>
 #include <ql/cashflows/dividend.hpp>
+#include <ql/termstructures/volatility/equityfx/puredividend.hpp>
 #include <ql/errors.hpp>
 #include <ql/utilities/null.hpp>
 #include <algorithm>
@@ -955,25 +956,48 @@ namespace QuantLib {
     }
 
     Real ParametricVolTermStructure::forward(Time t) const {
-        Real S = spot_->value();
-        Real df = riskFreeRate_->discount(t);
-        Real dq = dividendYield_->discount(t);
+        return cashDividendForward(spot_->value(), dividends_, *riskFreeRate_,
+                                   *dividendYield_, referenceDate(), dayCounter(), t);
+    }
 
-        Real pvDivs = 0.0;
-        if (!dividends_.empty()) {
-            Date refDate = referenceDate();
-            DayCounter dc = dayCounter();
-            for (const auto& div : dividends_) {
-                Date exDate = div->date();
-                if (exDate <= refDate)
-                    continue;
-                Time tDiv = dc.yearFraction(refDate, exDate);
-                if (tDiv < t) {
-                    pvDivs += div->amount() * riskFreeRate_->discount(tDiv);
-                }
-            }
+    Real ParametricVolTermStructure::dividendPV(Time t) const {
+        return cashDividendPV(dividends_, *riskFreeRate_, *dividendYield_,
+                              referenceDate(), dayCounter(), t);
+    }
+
+    void ParametricVolTermStructure::setPureDividendCoordinates(bool pure) {
+        if (pure == pureDividend_)
+            return;
+        pureDividend_ = pure;
+        notifyObservers();
+    }
+
+    ParametricVolTermStructure::StrikeCoordinate
+    ParametricVolTermStructure::strikeCoordinate(Time t, Real strike) const {
+        StrikeCoordinate c{forward(t), 0.0, 0.0};
+        c.dividendPV = pureDividend_ ? dividendPV(t) : 0.0;
+        if (c.dividendPV == 0.0) {
+            c.x = std::log(strike / c.forward);
+            return c;
         }
-        return (S - pvDivs) * dq / df;
+        QL_REQUIRE(c.forward > c.dividendPV,
+                   "forward " << c.forward << " at t=" << t
+                   << " not above the PV " << c.dividendPV << " of the dividends still to come");
+        // A strike at or below D(t) has no optionality left in the pure
+        // model; the floor keeps x finite (pureDividendBlackVol uses the same).
+        c.x = std::log(std::max((strike - c.dividendPV) / (c.forward - c.dividendPV), 1e-12));
+        return c;
+    }
+
+    Real ParametricVolTermStructure::coordinate(Time t, Real strike) const {
+        return strikeCoordinate(t, strike).x;
+    }
+
+    Volatility ParametricVolTermStructure::blackVolAt(Time t, Real strike,
+                                                      const StrikeCoordinate& c,
+                                                      Real w) const {
+        QL_REQUIRE(w >= 0.0, "negative total variance at (x=" << c.x << ", t=" << t << ")");
+        return pureDividendBlackVol(t, strike, c.forward, c.dividendPV, w);
     }
 
     Real ParametricVolTermStructure::z(Size i, Real k) const {
@@ -1251,12 +1275,8 @@ namespace QuantLib {
     Volatility ParametricVolTermStructure::blackVolImpl(Time t,
                                                         Real strike) const {
         if (t < 1e-14) t = 1e-14;
-        Real F = forward(t);
-        Real k = std::log(strike / F);
-        Real w = totalVariance(k, t);
-        QL_REQUIRE(w >= 0.0, "negative total variance at (k=" << k
-                              << ", t=" << t << ")");
-        return std::sqrt(w / t);
+        const StrikeCoordinate c = strikeCoordinate(t, strike);
+        return blackVolAt(t, strike, c, totalVariance(c.x, t));
     }
 
     void ParametricVolTermStructure::setSlice(Size i,
@@ -1296,13 +1316,12 @@ namespace QuantLib {
                        << " out of range (N=" << slices_.size() << ")");
             const auto& s = slices_[i];
             Real T = T_[i];
-            Real F = forward(T);
-            Real k = std::log(strikes[j] / F);
+            const StrikeCoordinate c = strikeCoordinate(T, strikes[j]);
             Real sigmaHat = s.atmIv * std::sqrt(T);
-            Real zv = k / sigmaHat;
+            Real zv = c.x / sigmaHat;
             Real w = sigmaHat * sigmaHat * shape_->f(zv, s.params);
             QL_REQUIRE(w >= 0.0, "negative total variance at slice " << i);
-            out[j] = std::sqrt(w / T);
+            out[j] = blackVolAt(T, strikes[j], c, w);
         }
         return out;
     }
@@ -1317,11 +1336,8 @@ namespace QuantLib {
         for (Size j = 0; j < times.size(); ++j) {
             Time t = times[j];
             if (t < 1e-14) t = 1e-14;
-            Real F = forward(t);
-            Real k = std::log(strikes[j] / F);
-            Real w = totalVariance(k, t);
-            QL_REQUIRE(w >= 0.0, "negative total variance at t=" << t);
-            out[j] = std::sqrt(w / t);
+            const StrikeCoordinate c = strikeCoordinate(t, strikes[j]);
+            out[j] = blackVolAt(t, strikes[j], c, totalVariance(c.x, t));
         }
         return out;
     }
@@ -1346,11 +1362,10 @@ namespace QuantLib {
                        "slice " << i << " has " << s.params.size()
                        << " params, expected " << n_shape);
             Real T = T_[i];
-            Real F = forward(T);
-            Real k = std::log(strikes[j] / F);
+            const StrikeCoordinate c = strikeCoordinate(T, strikes[j]);
             Real atm = s.atmIv;
             Real sigmaHat = atm * std::sqrt(T);
-            Real zv = k / sigmaHat;
+            Real zv = c.x / sigmaHat;
             Real fv = shape_->f(zv, s.params);
             QL_REQUIRE(fv > 0.0, "f(z) <= 0 at slice " << i << ", z=" << zv);
             Real sqrtF = std::sqrt(fv);
@@ -1365,6 +1380,16 @@ namespace QuantLib {
             Real scale = atm / (2.0 * sqrtF);
             for (Size p = 0; p < n_shape; ++p)
                 out[j * stride + 1 + p] = scale * dfdp[p];
+            // Pure mode: the row so far is d(sigma_X)/d(theta) at x; the
+            // fitted quantity is the Black vol on the actual forward.
+            if (c.dividendPV != 0.0) {
+                const Real w = sigmaHat * sigmaHat * fv;
+                const Real chain = pureDividendBlackVolSensitivity(
+                    T, strikes[j], c.forward, c.dividendPV, w,
+                    blackVolAt(T, strikes[j], c, w));
+                for (Size p = 0; p < stride; ++p)
+                    out[j * stride + p] *= chain;
+            }
         }
         return out;
     }

@@ -457,8 +457,30 @@ namespace QuantLib {
             of the last interior interval.  Throws on a single-pillar
             surface (Dupire is degenerate). */
         Real totalVarianceTimeDerivative(Real k, Time t) const;
-        //! Forward F(t) used internally for strike <-> k.
+        //! Forward F(t): the spot net of the cash dividends paid before t.
+        /*! Dividends grow at r - q, as in the spot-model FD engine
+            (cashDividendForward, puredividend.hpp). */
         Real forward(Time t) const;
+        //! PV at t of the cash dividends still to come (cashDividendPV).
+        Real dividendPV(Time t) const;
+        //@}
+
+        //! \name Pure-dividend coordinates (Buehler 2010)
+        /*! Off by default: slices are smiles in k = ln(K/F(t)), and that
+            is the coordinate every k-taking method above works in.  On, the
+            same methods work in x = ln((K - D(t))/(F(t) - D(t))), the
+            log-strike of the pure process X (puredividend.hpp), so time
+            interpolation at fixed x is consistent with cash-dividend drops.
+            Every strike-taking method (blackVol, the batch vols and the
+            gradient) maps K to x and returns the Black vol on the actual
+            forward, inverted from the pure-dividend price, so callers that
+            fit or price Black vols on strikes need no change.  Without
+            cash dividends the two coordinates coincide. */
+        //@{
+        void setPureDividendCoordinates(bool pure);
+        bool pureDividendCoordinates() const { return pureDividend_; }
+        //! The coordinate (k or x) a strike K sits at on time t.
+        Real coordinate(Time t, Real strike) const;
         //@}
 
         //! \name Analytic Dupire local volatility
@@ -627,6 +649,15 @@ namespace QuantLib {
         };
         TimeWeights timeWeights(Time t) const;
 
+        struct StrikeCoordinate {
+            Real forward, dividendPV, x;
+        };
+        StrikeCoordinate strikeCoordinate(Time t, Real strike) const;
+        //! Black vol on the actual forward at a strike whose coordinate has
+        //! total variance w.
+        Volatility blackVolAt(Time t, Real strike, const StrikeCoordinate& c, Real w) const;
+
+        bool                               pureDividend_ = false;
         std::vector<Time>                  T_;
         std::vector<ParametricVolSlice>    slices_;
         ext::shared_ptr<ParametricVolShape> shape_;

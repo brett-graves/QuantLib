@@ -29,10 +29,14 @@
     falls back to a single FD call on dfdz (one evaluation pair), still
     much cheaper than the multi-bump Dupire FD inside LocalVolSurface.
 
-    Forward consistency: the local-vol surface owns its own (r, q, S)
-    handles; the caller is responsible for passing the same handles that
-    constructed the underlying ParametricVolTermStructure so the two
-    forwards agree.
+    Coordinates: the strike-to-coordinate map, the forward and (in
+    pure-dividend mode) the PV of the dividends still to come all come from
+    the Black surface itself, so the local vol reads its slices at the
+    coordinate they were fitted in.  A forward rebuilt here from S Dq/Dr
+    would drop the surface's cash dividends (it did, gh #511).  In
+    pure-dividend mode the local vol of S is sigma_X(x, t) (S - D)/S, zero
+    at or below D(t) (puredividend.hpp).  The (r, q, S) handles are kept as
+    observables only.
 */
 
 #ifndef quantlib_parametric_local_vol_surface_hpp
