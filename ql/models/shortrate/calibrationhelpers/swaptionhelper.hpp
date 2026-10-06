@@ -33,7 +33,14 @@
 namespace QuantLib {
 
     //! calibration helper for interest-rate swaptions
-    /*! \warning passing an overnight index to the constructor will
+    /*! When an overnight index is passed, the floating leg of the
+        underlying overnight-indexed swap uses the fixed-leg tenor as
+        its payment (coupon) frequency, as in market OIS swaptions;
+        the index tenor (one day) would generate one coupon per
+        business day.  Each compounded coupon still accrues daily
+        fixings over its period.
+
+        \warning passing an overnight index to the constructor will
                  result in an overnight-indexed swap being built, but
                  model-based engines will treat it as a vanilla swap.
                  This is at best a decent proxy, at worst simply wrong.
