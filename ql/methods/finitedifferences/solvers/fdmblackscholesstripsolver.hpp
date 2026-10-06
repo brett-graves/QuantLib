@@ -33,8 +33,11 @@
     It reproduces FdBlackScholesVanillaEngine's Douglas scheme, its
     stopping times (ex-dates, ex-dates + 1e-5, extra stopping times and
     Fdm1DimSolver's theta snapshot), the spot cash-dividend jump and the
-    spline read-out.  Run on the engine's own per-strike mesh it returns
-    the engine's numbers; on stripMesher() it prices the whole strip.
+    spline read-out of value and theta, so its values are the engine's
+    on the same mesh and time grid.  Delta and gamma differ: they are the
+    three-point stencil in S at the spot node, which must be an interior
+    mesh node (stripMesher() makes it one), because the spline's
+    derivatives are wrong next to an American exercise boundary.
 
     Supported: local vol, cash or fractional dividends under the spot
     model, American or European exercise, no damping steps.  The exact

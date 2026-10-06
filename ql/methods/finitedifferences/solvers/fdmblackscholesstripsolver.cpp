@@ -304,9 +304,25 @@ namespace QuantLib {
             std::vector<Time>(stops.begin(), stops.end()));
         model.rollback(v, maturity, 0.0, tGrid_, condition);
 
-        // Fdm1DimSolver's read-out: monotonic natural cubic spline in ln S
+        // Value and theta: Fdm1DimSolver's read-out, a monotonic natural
+        // cubic spline in ln S.  Delta and gamma: the three-point stencil
+        // in S at the spot node.  The spline's derivatives are not usable
+        // near an American exercise boundary: the exercise value's kink
+        // in V'' bends the spline across the neighbouring nodes, so at a
+        // spot whose neighbours all sit exactly on the payoff it reports
+        // delta < -1 and negative gamma, and it does not converge under
+        // refinement.  The stencil is exact on a payoff linear in S, and
+        // matches the spline to O(h^2) where the solution is smooth.
         const Real spot = process_->x0();
         const Real x0 = std::log(spot);
+        Size i0 = std::lower_bound(x.begin(), x.end(), x0) - x.begin();
+        if (i0 == n || (i0 > 0 && x0 - x[i0-1] < x[i0] - x0))
+            --i0;
+        QL_REQUIRE(i0 > 0 && i0+1 < n && std::fabs(x[i0] - x0) < 1e-10,
+                   "spot " << spot << " is not an interior node of the strip mesh;"
+                   " use stripMesher(), which makes it one");
+        const Real sm = spots[i0-1], s0 = spots[i0], sp = spots[i0+1];
+        const Real hm = s0 - sm, hp = sp - s0;
         FdmBlackScholesStripResults results;
         results.value.resize(m);
         results.delta.resize(m);
@@ -320,11 +336,11 @@ namespace QuantLib {
                 thetaColumn[i] = snapshot[i][j];
             }
             const MonotonicCubicNaturalSpline spline(x.begin(), x.end(), column.begin());
-            const Real d1 = spline.derivative(x0);
-            const Real d2 = spline.secondDerivative(x0);
             results.value[j] = spline(x0);
-            results.delta[j] = d1/spot;
-            results.gamma[j] = (d2 - d1)/(spot*spot);
+            const Real vm = column[i0-1], v0 = column[i0], vp = column[i0+1];
+            results.delta[j] = (-hp/(hm*(hm+hp)))*vm + ((hp-hm)/(hm*hp))*v0
+                + (hm/(hp*(hm+hp)))*vp;
+            results.gamma[j] = 2.0*(vm/(hm*(hm+hp)) - v0/(hm*hp) + vp/(hp*(hm+hp)));
             const MonotonicCubicNaturalSpline thetaSpline(
                 x.begin(), x.end(), thetaColumn.begin());
             // Fdm1DimSolver::thetaAt has no snapshot to difference
