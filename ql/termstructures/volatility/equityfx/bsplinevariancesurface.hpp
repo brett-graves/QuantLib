@@ -28,6 +28,7 @@
 #include <ql/instruments/dividendschedule.hpp>
 #include <ql/quote.hpp>
 #include <ql/termstructures/volatility/equityfx/blackvoltermstructure.hpp>
+#include <ql/termstructures/volatility/equityfx/localvoltermstructure.hpp>
 #include <ql/termstructures/yieldtermstructure.hpp>
 #include <ql/time/daycounters/actual365fixed.hpp>
 #include <array>
@@ -49,8 +50,10 @@ namespace QuantLib {
         \f$ |w'| \le 2 \f$ are rejected, not clamped; a wing that would turn
         the variance negative raises when evaluated there.
 
-        Time: the forward is \f$ F(t) = (S - PV_{divs}(t))\,D_q(t)/D_r(t) \f$
-        and \f$ k = \ln(K/F(t)) \f$.  Total variance is linear in \f$ t \f$ at
+        Time: the forward is that of a spot paying the cash dividends
+        (cashDividendForward: each dividend grows at r - q from its ex-date,
+        as in the FD engines' spot dividend model) and
+        \f$ k = \ln(K/F(t)) \f$.  Total variance is linear in \f$ t \f$ at
         fixed \f$ k \f$ between pillars, scales to zero at \f$ t = 0 \f$
         before the first pillar, and continues the last interval's slope
         after the last pillar.  Pillar coefficients that satisfy
@@ -62,6 +65,15 @@ namespace QuantLib {
         \f$ g = (1 - k w'/2w)^2 - (w'^2/4)(1/w + 1/4) + w''/2 \f$, evaluated
         analytically.  It assumes a continuous forward (no discrete dividend
         jump inside the interval).
+
+        Pure-dividend coordinates (setPureDividendCoordinates(true)): the
+        slices are smiles of the pure process X in
+        \f$ x = \ln((K - D(t))/(F(t) - D(t))) \f$, with \f$ D(t) \f$ the
+        dividends still to come (Buehler; puredividend.hpp).  blackVol()
+        returns the Black vol on (F, K) of the same price, and the local vol
+        (BSplineLocalVolSurface) is \f$ \sigma_X (S - D)/S \f$, consistent
+        with cash dividend drops.  Without cash dividends both modes are
+        identical.
 
         \ingroup termstructures
     */
@@ -115,6 +127,21 @@ namespace QuantLib {
         Real totalVariance(Real k, Time t) const;
         //! Local variance at (k, t); raises where g <= 0 or w <= 0.
         Real localVariance(Real k, Time t) const;
+        //! localVariance() at one time for n coordinates.
+        /*! Where localVariance() would raise, out[i] is Null<Real>()
+            instead; returns the number of such points.  k and out may be
+            the same array. */
+        Size localVarianceSlice(Time t, const Real* k, Size n, Real* out) const;
+        //! PV at t of the cash dividends still to come (zero without any).
+        Real dividendPV(Time t) const;
+        //! Strike coordinate the slices are read at: k, or x in pure mode.
+        Real coordinate(Time t, Real strike) const;
+        bool pureDividendCoordinates() const { return pureDividend_; }
+        //@}
+
+        //! \name Modifiers
+        //@{
+        void setPureDividendCoordinates(bool pure);
         //@}
 
         //! \name Visitability
@@ -147,6 +174,37 @@ namespace QuantLib {
         Handle<YieldTermStructure> riskFreeRate_;
         Handle<YieldTermStructure> dividendYield_;
         DividendSchedule dividends_;
+        bool pureDividend_ = false;
+    };
+
+    //! Analytic local vol of a BSplineVarianceSurface.
+    /*! Gatheral's Dupire form on the surface's own slices, at the coordinate
+        they were fitted in: the forward and, in pure-dividend mode, D(t)
+        come from the surface, and the local vol of S is
+        sigma_X(x, t) (S - D)/S, zero at or below D(t).  localVolSlice()
+        computes the bracket and forward once per time.
+    */
+    class BSplineLocalVolSurface : public LocalVolTermStructure {
+      public:
+        explicit BSplineLocalVolSurface(ext::shared_ptr<BSplineVarianceSurface> blackSurface);
+
+        const Date& referenceDate() const override;
+        DayCounter dayCounter() const override;
+        Date maxDate() const override;
+        Real minStrike() const override;
+        Real maxStrike() const override;
+
+        Size localVolSlice(Time t, const Array& underlyingLevels, Array& out) const override;
+
+        const ext::shared_ptr<BSplineVarianceSurface>& blackSurface() const {
+            return blackSurface_;
+        }
+
+      protected:
+        Volatility localVolImpl(Time t, Real underlyingLevel) const override;
+
+      private:
+        ext::shared_ptr<BSplineVarianceSurface> blackSurface_;
     };
 
 }

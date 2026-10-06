@@ -19,6 +19,8 @@
 
 #include <ql/patterns/visitor.hpp>
 #include <ql/termstructures/volatility/equityfx/bsplinevariancesurface.hpp>
+#include <ql/termstructures/volatility/equityfx/puredividend.hpp>
+#include <ql/utilities/null.hpp>
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -215,23 +217,35 @@ namespace QuantLib {
     Real BSplineVarianceSurface::maxStrike() const { return QL_MAX_REAL; }
 
     Real BSplineVarianceSurface::forward(Time t) const {
-        const Real S = spot_->value();
-        const Real df = riskFreeRate_->discount(t);
-        const Real dq = dividendYield_->discount(t);
-        Real pvDivs = 0.0;
-        if (!dividends_.empty()) {
-            const Date refDate = referenceDate();
-            const DayCounter dc = dayCounter();
-            for (const auto& div : dividends_) {
-                const Date exDate = div->date();
-                if (exDate <= refDate)
-                    continue;
-                const Time tDiv = dc.yearFraction(refDate, exDate);
-                if (tDiv < t)
-                    pvDivs += div->amount() * riskFreeRate_->discount(tDiv);
-            }
-        }
-        return (S - pvDivs) * dq / df;
+        // The FD engines' spot dividend model: each cash dividend grows at
+        // r - q from its ex-date (gh #511), as ParametricVolTermStructure.
+        return cashDividendForward(spot_->value(), dividends_, *riskFreeRate_.currentLink(),
+                                   *dividendYield_.currentLink(), referenceDate(), dayCounter(),
+                                   t);
+    }
+
+    Real BSplineVarianceSurface::dividendPV(Time t) const {
+        return cashDividendPV(dividends_, *riskFreeRate_.currentLink(),
+                              *dividendYield_.currentLink(), referenceDate(), dayCounter(), t);
+    }
+
+    void BSplineVarianceSurface::setPureDividendCoordinates(bool pure) {
+        if (pure == pureDividend_)
+            return;
+        pureDividend_ = pure;
+        notifyObservers();
+    }
+
+    Real BSplineVarianceSurface::coordinate(Time t, Real strike) const {
+        const Real f = forward(t);
+        const Real d = pureDividend_ ? dividendPV(t) : 0.0;
+        if (d == 0.0)
+            return std::log(strike / f);
+        QL_REQUIRE(f > d, "forward " << f << " at t=" << t << " not above the PV " << d
+                                     << " of the dividends still to come");
+        // A strike at or below D(t) has no optionality left in the pure model;
+        // the floor keeps x finite (pureDividendBlackVol uses the same).
+        return std::log(std::max((strike - d) / (f - d), 1e-12));
     }
 
     std::array<Real, 3> BSplineVarianceSurface::inside(const Slice& s, Real k) const {
@@ -313,9 +327,51 @@ namespace QuantLib {
         return dwdt / g;
     }
 
+    Size BSplineVarianceSurface::localVarianceSlice(Time t, const Real* k, Size n,
+                                                    Real* out) const {
+        Size lo, hi;
+        Real a;
+        bracket(t, lo, hi, a);
+        const Real dt = lo == hi ? times_.front() : times_[hi] - times_[lo];
+        Size nIllegal = 0;
+        for (Size j = 0; j < n; ++j) {
+            std::array<Real, 3> w;
+            Real dwdt;
+            if (lo == hi) {
+                const std::array<Real, 3> w0 = derivatives(0, k[j]);
+                w = {a * w0[0], a * w0[1], a * w0[2]};
+                dwdt = w0[0] / dt;
+            } else {
+                const std::array<Real, 3> wl = derivatives(lo, k[j]), wh = derivatives(hi, k[j]);
+                for (Size i = 0; i < 3; ++i)
+                    w[i] = (1.0 - a) * wl[i] + a * wh[i];
+                dwdt = (wh[0] - wl[0]) / dt;
+            }
+            const Real u = 1.0 - 0.5 * k[j] * w[1] / w[0];
+            const Real g = u * u - 0.25 * w[1] * w[1] * (1.0 / w[0] + 0.25) + 0.5 * w[2];
+            if (!(w[0] > 0.0) || !(dwdt >= 0.0) || !(g > 0.0)) {
+                out[j] = Null<Real>();
+                ++nIllegal;
+            } else {
+                out[j] = dwdt / g;
+            }
+        }
+        return nIllegal;
+    }
+
     Volatility BSplineVarianceSurface::blackVolImpl(Time t, Real strike) const {
         if (t < 1e-14)
             t = 1e-14;
+        if (pureDividend_) {
+            const Real d = dividendPV(t);
+            if (d != 0.0) {
+                const Real x = coordinate(t, strike);
+                const Real wX = totalVariance(x, t);
+                QL_REQUIRE(wX >= 0.0, "negative total variance " << wX << " at (x=" << x
+                                                                  << ", t=" << t << ")");
+                return pureDividendBlackVol(t, strike, forward(t), d, wX);
+            }
+        }
         const Real k = std::log(strike / forward(t));
         const Real w = totalVariance(k, t);
         QL_REQUIRE(w >= 0.0, "negative total variance " << w << " at (k=" << k << ", t=" << t
@@ -329,6 +385,74 @@ namespace QuantLib {
             v1->visit(*this);
         else
             BlackVolatilityTermStructure::accept(v);
+    }
+
+    BSplineLocalVolSurface::BSplineLocalVolSurface(
+        ext::shared_ptr<BSplineVarianceSurface> blackSurface)
+    : LocalVolTermStructure(blackSurface ? blackSurface->businessDayConvention() : Following,
+                            blackSurface ? blackSurface->dayCounter() : DayCounter()),
+      blackSurface_(std::move(blackSurface)) {
+        QL_REQUIRE(blackSurface_, "blackSurface must not be null");
+        registerWith(blackSurface_);
+    }
+
+    const Date& BSplineLocalVolSurface::referenceDate() const {
+        return blackSurface_->referenceDate();
+    }
+
+    DayCounter BSplineLocalVolSurface::dayCounter() const { return blackSurface_->dayCounter(); }
+
+    Date BSplineLocalVolSurface::maxDate() const { return blackSurface_->maxDate(); }
+
+    Real BSplineLocalVolSurface::minStrike() const { return blackSurface_->minStrike(); }
+
+    Real BSplineLocalVolSurface::maxStrike() const { return blackSurface_->maxStrike(); }
+
+    Volatility BSplineLocalVolSurface::localVolImpl(Time t, Real underlyingLevel) const {
+        if (t < 1e-14)
+            t = 1e-14;
+        const Real d =
+            blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
+        if (d != 0.0 && underlyingLevel <= d)
+            return 0.0;
+        const Real x = blackSurface_->coordinate(t, underlyingLevel);
+        const Real sigma = std::sqrt(blackSurface_->localVariance(x, t));
+        return d == 0.0 ? sigma : sigma * (underlyingLevel - d) / underlyingLevel;
+    }
+
+    Size BSplineLocalVolSurface::localVolSlice(Time t,
+                                               const Array& underlyingLevels,
+                                               Array& out) const {
+        const Size n = underlyingLevels.size();
+        QL_REQUIRE(out.size() == n,
+                   "localVolSlice: output size " << out.size() << " != input size " << n);
+        checkRange(t, true);
+        if (t < 1e-14)
+            t = 1e-14;
+        // Forward and D(t) once per time, as localVolImpl() takes them.
+        const Real fwd = blackSurface_->forward(t);
+        const Real d =
+            blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
+        QL_REQUIRE(fwd > d, "localVolSlice: forward " << fwd << " not above D(t)=" << d);
+        for (Size j = 0; j < n; ++j) {
+            const Real s = underlyingLevels[j];
+            // Below D(t) the pure spot cannot go: any finite x, zeroed below.
+            out[j] = s > d ? std::log((s - d) / (fwd - d)) : 0.0;
+        }
+        Size nIllegal = blackSurface_->localVarianceSlice(t, out.begin(), n, out.begin());
+        for (Size j = 0; j < n; ++j) {
+            const Real s = underlyingLevels[j];
+            if (d != 0.0 && s <= d) {
+                if (out[j] == Null<Real>())
+                    --nIllegal;
+                out[j] = 0.0;
+            } else if (out[j] != Null<Real>()) {
+                out[j] = std::sqrt(out[j]);
+                if (d != 0.0)
+                    out[j] *= (s - d) / s;
+            }
+        }
+        return nIllegal;
     }
 
 }
