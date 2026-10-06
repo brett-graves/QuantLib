@@ -146,7 +146,8 @@ namespace QuantLib {
     }
 
     Real PureDividendFlatLocalVol::dividendPV(Time t) const {
-        return cashDividendPV(dividends_, *riskFreeRate_, *dividendYield_, referenceDate(),
+        return cashDividendPV(dividends_, *riskFreeRate_.currentLink(),
+                              *dividendYield_.currentLink(), referenceDate(),
                               dayCounter(), t);
     }
 

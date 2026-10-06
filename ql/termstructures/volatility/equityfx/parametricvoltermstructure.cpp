@@ -956,12 +956,13 @@ namespace QuantLib {
     }
 
     Real ParametricVolTermStructure::forward(Time t) const {
-        return cashDividendForward(spot_->value(), dividends_, *riskFreeRate_,
-                                   *dividendYield_, referenceDate(), dayCounter(), t);
+        return cashDividendForward(spot_->value(), dividends_, *riskFreeRate_.currentLink(),
+                                   *dividendYield_.currentLink(), referenceDate(), dayCounter(), t);
     }
 
     Real ParametricVolTermStructure::dividendPV(Time t) const {
-        return cashDividendPV(dividends_, *riskFreeRate_, *dividendYield_,
+        return cashDividendPV(dividends_, *riskFreeRate_.currentLink(),
+                              *dividendYield_.currentLink(),
                               referenceDate(), dayCounter(), t);
     }
 
