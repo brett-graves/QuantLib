@@ -32,6 +32,7 @@
 #include <ql/pricingengines/swap/treeswapengine.hpp>
 #include <ql/pricingengines/swap/discountingswapengine.hpp>
 #include <ql/indexes/ibor/euribor.hpp>
+#include <ql/indexes/ibor/sofr.hpp>
 #include <ql/indexes/indexmanager.hpp>
 #include <ql/math/optimization/simplex.hpp>
 #include <ql/math/optimization/levenbergmarquardt.hpp>
@@ -515,6 +516,67 @@ BOOST_AUTO_TEST_CASE(testVasicekDiscountFactorForSmallMeanReversion) {
                     << "\n  tolerance : " << tolerance);
     }
 }
+
+BOOST_AUTO_TEST_CASE(testSwaptionHelperWithOvernightIndex) {
+    BOOST_TEST_MESSAGE("Testing that a swaption helper on an overnight index "
+                       "pays the floating leg at the fixed-leg frequency...");
+
+    Date today(15, February, 2002);
+    Settings::instance().evaluationDate() = today;
+    Handle<YieldTermStructure> termStructure(flatRate(today, 0.04, Actual365Fixed()));
+    auto index = ext::make_shared<Sofr>(termStructure);
+    auto model = ext::make_shared<HullWhite>(termStructure, 0.03, 0.01);
+    auto engine = ext::make_shared<JamshidianSwaptionEngine>(model);
+
+    struct Case {
+        Integer start, length;
+    };
+    Case cases[] = {{1, 2}, {1, 10}, {5, 5}, {5, 10}};
+
+    for (auto& c : cases) {
+        auto vol = ext::make_shared<SimpleQuote>(0.01);
+        SwaptionHelper helper(Period(c.start, Years), Period(c.length, Years),
+                              Handle<Quote>(vol), index, Period(1, Years), Actual360(),
+                              Actual360(), termStructure, BlackCalibrationHelper::RelativePriceError,
+                              Null<Real>(), 1.0, Normal);
+        helper.setPricingEngine(engine);
+        const auto& swap = helper.underlying();
+
+        // one floating coupon per fixed coupon, not one per business day
+        if (swap->floatingLeg().size() != swap->fixedLeg().size())
+            BOOST_ERROR("floating leg of " << c.start << "x" << c.length
+                                           << " overnight swaption helper has "
+                                           << swap->floatingLeg().size() << " coupons, "
+                                           << "expected " << swap->fixedLeg().size());
+        for (Size i = 0; i < swap->fixedLeg().size(); ++i) {
+            auto fixedCoupon = ext::dynamic_pointer_cast<Coupon>(swap->fixedLeg()[i]);
+            auto floatCoupon = ext::dynamic_pointer_cast<Coupon>(swap->floatingLeg()[i]);
+            if (floatCoupon->accrualEndDate() != fixedCoupon->accrualEndDate())
+                BOOST_ERROR("floating coupon " << i << " of " << c.start << "x" << c.length
+                                               << " ends on " << floatCoupon->accrualEndDate()
+                                               << ", fixed coupon on "
+                                               << fixedCoupon->accrualEndDate());
+        }
+
+        // single curve, compounding: the floating leg telescopes to P(start) - P(end)
+        Real expected = termStructure->discount(swap->startDate()) -
+                        termStructure->discount(swap->maturityDate());
+        Real calculated = std::fabs(swap->floatingLegNPV());
+        Real tolerance = 1.0e-12;
+        if (std::fabs(calculated - expected) > tolerance)
+            BOOST_ERROR("floating leg NPV of " << c.start << "x" << c.length
+                                               << " overnight swaption helper:"
+                                               << "\n    calculated: " << calculated
+                                               << "\n    expected:   " << expected
+                                               << "\n    tolerance:  " << tolerance);
+
+        // the helper still prices and can be used for calibration
+        if (!(helper.modelValue() > 0.0))
+            BOOST_ERROR("non-positive model value for " << c.start << "x" << c.length
+                                                        << " overnight swaption helper");
+    }
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE_END()
