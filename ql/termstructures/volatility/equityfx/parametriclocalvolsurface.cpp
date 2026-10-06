@@ -88,7 +88,9 @@ namespace QuantLib {
         if (d != 0.0 && underlyingLevel <= d)
             return 0.0;
         const Real x = blackSurface_->coordinate(t, underlyingLevel);
-        return blackSurface_->localVol(x, t) * (underlyingLevel - d) / underlyingLevel;
+        const Real sigma = blackSurface_->localVol(x, t);
+        // Unscaled without dividends to come, so that path stays bit-identical.
+        return d == 0.0 ? sigma : sigma * (underlyingLevel - d) / underlyingLevel;
     }
 
     Size ParametricLocalVolSurface::localVolSlice(
@@ -119,7 +121,9 @@ namespace QuantLib {
                     --nIllegal;
                 out[j] = 0.0;
             } else if (out[j] != Null<Real>()) {
-                out[j] = std::sqrt(out[j]) * (s - d) / s;
+                out[j] = std::sqrt(out[j]);
+                if (d != 0.0)
+                    out[j] *= (s - d) / s;
             }
         }
         return nIllegal;

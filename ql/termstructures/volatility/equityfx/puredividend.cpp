@@ -79,7 +79,9 @@ namespace QuantLib {
             if (ti < t)
                 paid += div->amount() * carryFactor(riskFreeRate, dividendYield, ti);
         }
-        return (spot - paid) / carryFactor(riskFreeRate, dividendYield, t);
+        // (S - paid) Dq/Dr in this order: with no dividends it is bit-identical
+        // to the S Dq/Dr every surface and local vol computed before.
+        return (spot - paid) * dividendYield.discount(t, true) / riskFreeRate.discount(t, true);
     }
 
     Volatility pureDividendBlackVol(Time t, Real strike, Real forward,
