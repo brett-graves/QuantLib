@@ -146,27 +146,25 @@ namespace QuantLib {
             const Matrix& snapshot() const { return snapshot_; }
 
           private:
-            // LinearInterpolation(s, column)(max(s[0], s[k] - D), true)
-            // for every column; the bracket depends on the node only.
+            // FdmDividendHandler's jump for every column: a monotone cubic
+            // spline in ln S read at ln(max(s[0], s[k] - D)) (chloride
+            // #593; linear interpolation reads a convex value high).
             void applyDividend(Matrix& a, const Dividend& div) const {
                 const Matrix copy(a);
                 const Size n = s_.size();
+                std::vector<Real> lnS(n), lnTarget(n), column(n);
                 for (Size k=0; k < n; ++k) {
-                    const Real x = std::max(s_[0], s_[k] - div.amount(s_[k]));
-                    Size i;
-                    if (x < s_[0])
-                        i = 0;
-                    else if (x > s_[n-1])
-                        i = n-2;
-                    else
-                        i = std::upper_bound(s_.begin(), s_.end()-1, x) - s_.begin() - 1;
-                    const Real dx = x - s_[i];
-                    const Real h = s_[i+1] - s_[i];
-                    const Real* y0 = copy.row_begin(i);
-                    const Real* y1 = copy.row_begin(i+1);
-                    Real* out = a.row_begin(k);
-                    for (Size j=0; j < a.columns(); ++j)
-                        out[j] = y0[j] + dx*((y1[j]-y0[j])/h);
+                    lnS[k] = std::log(s_[k]);
+                    lnTarget[k] = std::log(
+                        std::max(s_[0], s_[k] - div.amount(s_[k])));
+                }
+                for (Size j=0; j < a.columns(); ++j) {
+                    for (Size k=0; k < n; ++k)
+                        column[k] = copy[k][j];
+                    MonotonicCubicNaturalSpline interp(
+                        lnS.begin(), lnS.end(), column.begin());
+                    for (Size k=0; k < n; ++k)
+                        a[k][j] = interp(lnTarget[k], true);
                 }
             }
 

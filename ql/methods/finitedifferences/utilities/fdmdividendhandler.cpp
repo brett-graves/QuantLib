@@ -20,7 +20,7 @@
 */
 
 #include <ql/time/daycounter.hpp>
-#include <ql/math/interpolations/linearinterpolation.hpp>
+#include <ql/math/interpolations/cubicinterpolation.hpp>
 #include <ql/methods/finitedifferences/operators/fdmlinearoplayout.hpp>
 #include <ql/methods/finitedifferences/utilities/fdmdividendhandler.hpp>
 
@@ -90,12 +90,27 @@ namespace QuantLib {
             // amount, preserving legacy behaviour for cash divs.
             const auto& div = dividendCashflows_[iter - dividendTimes_.begin()];
 
+            // The jump V(S) <- V(S - D) reads the value between nodes.
+            // Linear interpolation of a convex value function always reads
+            // high, by O(h^2) per ex-date, and the error accumulates over
+            // every dividend in the option's life (chloride #593: +$0.15 on
+            // a 2y SPY call at 150 nodes).  A monotone cubic spline in
+            // ln S -- the interpolant Fdm1DimSolver reads the result with --
+            // removes that term; the Hyman filter keeps it from overshooting
+            // near a payoff kink when the ex-date is close to expiry.
+            Array lnX(x_.size());
+            Array lnTarget(x_.size());
+            for (Size k=0; k<x_.size(); ++k) {
+                lnX[k] = std::log(x_[k]);
+                lnTarget[k] = std::log(
+                    std::max(x_[0], x_[k] - div->amount(x_[k])));
+            }
+
             if (mesher_->layout()->dim().size() == 1) {
-                LinearInterpolation interp(x_.begin(), x_.end(), aCopy.begin());
-                for (Size k=0; k<x_.size(); ++k) {
-                    const Real drop = div->amount(x_[k]);
-                    a[k] = interp(std::max(x_[0], x_[k]-drop), true);
-                }
+                MonotonicCubicNaturalSpline interp(
+                    lnX.begin(), lnX.end(), aCopy.begin());
+                for (Size k=0; k<x_.size(); ++k)
+                    a[k] = interp(lnTarget[k], true);
             }
             else {
                 Array tmp(x_.size());
@@ -109,13 +124,11 @@ namespace QuantLib {
                                 Size index = j*ySpacing + k*xSpacing;
                                 tmp[k] = aCopy[index];
                             }
-                            LinearInterpolation interp(x_.begin(), x_.end(),
-                                                       tmp.begin());
+                            MonotonicCubicNaturalSpline interp(
+                                lnX.begin(), lnX.end(), tmp.begin());
                             for (Size k=0; k<x_.size(); ++k) {
                                 Size index = j*ySpacing + k*xSpacing;
-                                const Real drop = div->amount(x_[k]);
-                                a[index] = interp(
-                                        std::max(x_[0], x_[k]-drop), true);
+                                a[index] = interp(lnTarget[k], true);
                             }
                         }
                     }
