@@ -47,6 +47,7 @@
 #include <ql/termstructures/yieldtermstructure.hpp>
 #include <ql/quote.hpp>
 #include <ql/handle.hpp>
+#include <ql/utilities/null.hpp>
 
 namespace QuantLib {
 
@@ -101,11 +102,17 @@ namespace QuantLib {
                            const Array& underlyingLevels,
                            Array& out) const override;
 
+        void update() override;
+
       protected:
         Volatility localVolImpl(Time t, Real underlyingLevel) const override;
 
       private:
+        //! Forward and D(t) for the last t: FD engines query every node of a step at one t.
+        void coordinatesAt(Time t, Real& forward, Real& dividendPV) const;
         ext::shared_ptr<ParametricVolTermStructure> blackSurface_;
+        mutable Time cacheTime_ = Null<Time>();
+        mutable Real cacheForward_ = 0.0, cacheDividendPV_ = 0.0;
         Handle<YieldTermStructure>                  riskFreeRate_;
         Handle<YieldTermStructure>                  dividendYield_;
         Handle<Quote>                               spot_;

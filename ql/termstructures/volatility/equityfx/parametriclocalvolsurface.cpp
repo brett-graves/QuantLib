@@ -20,6 +20,7 @@
 #include <ql/termstructures/volatility/equityfx/parametriclocalvolsurface.hpp>
 #include <ql/errors.hpp>
 #include <ql/utilities/null.hpp>
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -77,17 +78,38 @@ namespace QuantLib {
             LocalVolTermStructure::accept(v);
     }
 
+    void ParametricLocalVolSurface::coordinatesAt(Time t, Real& forward, Real& dividendPV) const {
+        if (t != cacheTime_) {
+            cacheForward_ = blackSurface_->forward(t);
+            cacheDividendPV_ =
+                blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
+            cacheTime_ = t;
+        }
+        forward = cacheForward_;
+        dividendPV = cacheDividendPV_;
+    }
+
+    void ParametricLocalVolSurface::update() {
+        cacheTime_ = Null<Time>();
+        LocalVolTermStructure::update();
+    }
+
     Volatility ParametricLocalVolSurface::localVolImpl(
             Time t, Real underlyingLevel) const {
         if (t < 1e-14) t = 1e-14;
         // The coordinate comes from the Black surface itself, so its cash
         // dividends (forward, and D(t) in pure mode) are the ones the slices
         // were built against; a forward rebuilt here from S Dq/Dr drops them.
-        const Real d =
-            blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
+        // Both are kept for the last t (one FD step queries every node at it).
+        Real fwd, d;
+        coordinatesAt(t, fwd, d);
         if (d != 0.0 && underlyingLevel <= d)
             return 0.0;
-        const Real x = blackSurface_->coordinate(t, underlyingLevel);
+        if (d != 0.0)
+            QL_REQUIRE(fwd > d, "forward " << fwd << " at t=" << t << " not above the PV " << d
+                                           << " of the dividends still to come");
+        const Real x = d == 0.0 ? std::log(underlyingLevel / fwd)
+                                : std::log(std::max((underlyingLevel - d) / (fwd - d), 1e-12));
         const Real sigma = blackSurface_->localVol(x, t);
         // Unscaled without dividends to come, so that path stays bit-identical.
         return d == 0.0 ? sigma : sigma * (underlyingLevel - d) / underlyingLevel;
@@ -103,9 +125,8 @@ namespace QuantLib {
         // localVolImpl() for every point, with the forward taken once.
         if (t < 1e-14) t = 1e-14;
         // Forward and D(t) once per time, as localVolImpl() takes them.
-        const Real fwd = blackSurface_->forward(t);
-        const Real d =
-            blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
+        Real fwd, d;
+        coordinatesAt(t, fwd, d);
         QL_REQUIRE(fwd > d, "localVolSlice: forward " << fwd << " not above D(t)=" << d);
         for (Size j = 0; j < n; ++j) {
             const Real s = underlyingLevels[j];

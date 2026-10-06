@@ -408,14 +408,34 @@ namespace QuantLib {
 
     Real BSplineLocalVolSurface::maxStrike() const { return blackSurface_->maxStrike(); }
 
+    void BSplineLocalVolSurface::coordinatesAt(Time t, Real& forward, Real& dividendPV) const {
+        if (t != cacheTime_) {
+            cacheForward_ = blackSurface_->forward(t);
+            cacheDividendPV_ =
+                blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
+            cacheTime_ = t;
+        }
+        forward = cacheForward_;
+        dividendPV = cacheDividendPV_;
+    }
+
+    void BSplineLocalVolSurface::update() {
+        cacheTime_ = Null<Time>();
+        LocalVolTermStructure::update();
+    }
+
     Volatility BSplineLocalVolSurface::localVolImpl(Time t, Real underlyingLevel) const {
         if (t < 1e-14)
             t = 1e-14;
-        const Real d =
-            blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
+        Real fwd, d;
+        coordinatesAt(t, fwd, d);
         if (d != 0.0 && underlyingLevel <= d)
             return 0.0;
-        const Real x = blackSurface_->coordinate(t, underlyingLevel);
+        if (d != 0.0)
+            QL_REQUIRE(fwd > d, "forward " << fwd << " at t=" << t << " not above the PV " << d
+                                           << " of the dividends still to come");
+        const Real x = d == 0.0 ? std::log(underlyingLevel / fwd)
+                                : std::log(std::max((underlyingLevel - d) / (fwd - d), 1e-12));
         const Real sigma = std::sqrt(blackSurface_->localVariance(x, t));
         return d == 0.0 ? sigma : sigma * (underlyingLevel - d) / underlyingLevel;
     }
@@ -430,9 +450,8 @@ namespace QuantLib {
         if (t < 1e-14)
             t = 1e-14;
         // Forward and D(t) once per time, as localVolImpl() takes them.
-        const Real fwd = blackSurface_->forward(t);
-        const Real d =
-            blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
+        Real fwd, d;
+        coordinatesAt(t, fwd, d);
         QL_REQUIRE(fwd > d, "localVolSlice: forward " << fwd << " not above D(t)=" << d);
         for (Size j = 0; j < n; ++j) {
             const Real s = underlyingLevels[j];

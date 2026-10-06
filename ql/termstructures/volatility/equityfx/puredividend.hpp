@@ -54,6 +54,7 @@
 #include <ql/handle.hpp>
 #include <ql/instruments/dividendschedule.hpp>
 #include <ql/quote.hpp>
+#include <ql/utilities/null.hpp>
 #include <ql/termstructures/volatility/equityfx/localvoltermstructure.hpp>
 #include <ql/termstructures/yieldtermstructure.hpp>
 #include <ql/time/daycounter.hpp>
@@ -112,14 +113,19 @@ namespace QuantLib {
         //! PV at t of the dividends still to come.
         Real dividendPV(Time t) const;
         Size localVolSlice(Time t, const Array& underlyingLevels, Array& out) const override;
+        void update() override;
 
       protected:
         Volatility localVolImpl(Time t, Real underlyingLevel) const override;
 
       private:
+        //! dividendPV(t), kept for the last t: FD engines query every node of a step at one t.
+        Real cachedDividendPV(Time t) const;
         Handle<YieldTermStructure> riskFreeRate_, dividendYield_;
         DividendSchedule dividends_;
         Handle<Quote> sigmaX_;
+        mutable Time cacheTime_ = Null<Time>();
+        mutable Real cacheDividendPV_ = 0.0;
     };
 
 }

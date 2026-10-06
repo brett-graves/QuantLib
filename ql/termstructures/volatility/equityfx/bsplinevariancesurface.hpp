@@ -27,6 +27,7 @@
 #include <ql/handle.hpp>
 #include <ql/instruments/dividendschedule.hpp>
 #include <ql/quote.hpp>
+#include <ql/utilities/null.hpp>
 #include <ql/termstructures/volatility/equityfx/blackvoltermstructure.hpp>
 #include <ql/termstructures/volatility/equityfx/localvoltermstructure.hpp>
 #include <ql/termstructures/yieldtermstructure.hpp>
@@ -195,6 +196,7 @@ namespace QuantLib {
         Real maxStrike() const override;
 
         Size localVolSlice(Time t, const Array& underlyingLevels, Array& out) const override;
+        void update() override;
 
         const ext::shared_ptr<BSplineVarianceSurface>& blackSurface() const {
             return blackSurface_;
@@ -204,7 +206,11 @@ namespace QuantLib {
         Volatility localVolImpl(Time t, Real underlyingLevel) const override;
 
       private:
+        //! Forward and D(t) for the last t: FD engines query every node of a step at one t.
+        void coordinatesAt(Time t, Real& forward, Real& dividendPV) const;
         ext::shared_ptr<BSplineVarianceSurface> blackSurface_;
+        mutable Time cacheTime_ = Null<Time>();
+        mutable Real cacheForward_ = 0.0, cacheDividendPV_ = 0.0;
     };
 
 }

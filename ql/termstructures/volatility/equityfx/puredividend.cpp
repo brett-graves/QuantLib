@@ -18,6 +18,7 @@
 */
 
 #include <ql/termstructures/volatility/equityfx/puredividend.hpp>
+#include <ql/utilities/null.hpp>
 #include <ql/errors.hpp>
 #include <ql/math/distributions/normaldistribution.hpp>
 #include <ql/pricingengines/blackformula.hpp>
@@ -153,8 +154,21 @@ namespace QuantLib {
                               dayCounter(), t);
     }
 
+    Real PureDividendFlatLocalVol::cachedDividendPV(Time t) const {
+        if (t != cacheTime_) {
+            cacheDividendPV_ = dividendPV(t);
+            cacheTime_ = t;
+        }
+        return cacheDividendPV_;
+    }
+
+    void PureDividendFlatLocalVol::update() {
+        cacheTime_ = Null<Time>();
+        LocalVolTermStructure::update();
+    }
+
     Volatility PureDividendFlatLocalVol::localVolImpl(Time t, Real underlyingLevel) const {
-        const Real d = dividendPV(t);
+        const Real d = cachedDividendPV(t);
         if (underlyingLevel <= d)
             return 0.0;
         return sigmaX_->value() * (underlyingLevel - d) / underlyingLevel;
@@ -166,7 +180,7 @@ namespace QuantLib {
         QL_REQUIRE(out.size() == n,
                    "localVolSlice: output size " << out.size() << " != input size " << n);
         checkRange(t, true);
-        const Real d = dividendPV(t);
+        const Real d = cachedDividendPV(t);
         const Real sigma = sigmaX_->value();
         for (Size j = 0; j < n; ++j) {
             const Real s = underlyingLevels[j];
