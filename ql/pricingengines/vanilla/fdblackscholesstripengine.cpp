@@ -34,13 +34,16 @@ namespace QuantLib {
         Real mesherEps,
         Real spotConcentrationDensity,
         Real illegalLocalVolOverwrite,
-        std::vector<Time> stoppingTimes)
+        std::vector<Time> stoppingTimes,
+        Real coreStdDevs,
+        Real coreFraction)
     : process_(std::move(process)), dividends_(std::move(dividends)),
       xGrid_(xGrid), tGrid_(tGrid), minStepsPerYear_(minStepsPerYear),
       mesherScaleFactor_(mesherScaleFactor), mesherEps_(mesherEps),
       spotConcentrationDensity_(spotConcentrationDensity),
       illegalLocalVolOverwrite_(illegalLocalVolOverwrite),
-      stoppingTimes_(std::move(stoppingTimes)) {
+      stoppingTimes_(std::move(stoppingTimes)),
+      coreStdDevs_(coreStdDevs), coreFraction_(coreFraction) {
         QL_REQUIRE(process_, "null process");
         registerWith(process_);
     }
@@ -90,7 +93,8 @@ namespace QuantLib {
         const ext::shared_ptr<Fdm1dMesher> mesher =
             FdmBlackScholesStripSolver::stripMesher(
                 process_, maturity, strikes, dividends_, xGrid_,
-                mesherScaleFactor_, mesherEps_, spotConcentrationDensity_);
+                mesherScaleFactor_, mesherEps_, spotConcentrationDensity_,
+                coreStdDevs_, coreFraction_);
         const FdmBlackScholesStripSolver solver(
             process_, key.first, payoffs, key.second == Exercise::American,
             dividends_, mesher, tGrid, illegalLocalVolOverwrite_, stoppingTimes_,

@@ -452,6 +452,7 @@ set(QL_SOURCES
     methods/finitedifferences/meshers/fdmhestonvariancemesher.cpp
     methods/finitedifferences/meshers/fdmmeshercomposite.cpp
     methods/finitedifferences/meshers/fdmsimpleprocess1dmesher.cpp
+    methods/finitedifferences/meshers/gradedcore1dmesher.cpp
     methods/finitedifferences/meshers/uniformgridmesher.cpp
     methods/finitedifferences/operators/fdm2dblackscholesop.cpp
     methods/finitedifferences/operators/fdmbatesop.cpp
@@ -1673,6 +1674,7 @@ set(QL_HEADERS
     methods/finitedifferences/meshers/fdmmesher.hpp
     methods/finitedifferences/meshers/fdmmeshercomposite.hpp
     methods/finitedifferences/meshers/fdmsimpleprocess1dmesher.hpp
+    methods/finitedifferences/meshers/gradedcore1dmesher.hpp
     methods/finitedifferences/meshers/predefined1dmesher.hpp
     methods/finitedifferences/meshers/uniform1dmesher.hpp
     methods/finitedifferences/meshers/uniformgridmesher.hpp

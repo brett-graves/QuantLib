@@ -48,6 +48,12 @@ namespace QuantLib {
         The time grid is max(tGrid, round(minStepsPerYear * T)) steps.
         Terminal values are exact cell averages of the payoffs, not the
         vanilla engine's Simpson approximation.
+
+        The mesh is FdmBlackScholesStripSolver::stripMesher(): with
+        \p coreStdDevs null, concentrated at spot with relative density
+        \p spotConcentrationDensity; otherwise a uniform core of
+        \p coreStdDevs ATM standard deviations holding \p coreFraction
+        of the nodes, graded out to the range ends.
         Cash and fractional dividends use the spot model.  Pricing a
         single option this way costs a whole strip; use
         FdBlackScholesVanillaEngine for that.
@@ -66,7 +72,9 @@ namespace QuantLib {
             Real mesherEps = 0.0001,
             Real spotConcentrationDensity = 0.1,
             Real illegalLocalVolOverwrite = -Null<Real>(),
-            std::vector<Time> stoppingTimes = {});
+            std::vector<Time> stoppingTimes = {},
+            Real coreStdDevs = Null<Real>(),
+            Real coreFraction = 0.5);
 
         //! registers options to be solved together with their expiry
         void declare(const Date& maturity,
@@ -101,6 +109,7 @@ namespace QuantLib {
         Real minStepsPerYear_, mesherScaleFactor_, mesherEps_;
         Real spotConcentrationDensity_, illegalLocalVolOverwrite_;
         std::vector<Time> stoppingTimes_;
+        Real coreStdDevs_, coreFraction_;
         mutable std::map<GroupKey, Group> groups_;
         mutable Size solveCount_ = 0;
         mutable Size illegalLocalVolCount_ = 0;

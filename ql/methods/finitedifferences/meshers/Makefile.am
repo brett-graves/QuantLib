@@ -14,6 +14,7 @@ this_include_HEADERS = \
     fdmmeshercomposite.hpp \
     fdmmesher.hpp \
     fdmsimpleprocess1dmesher.hpp \
+    gradedcore1dmesher.hpp \
     predefined1dmesher.hpp \
     uniform1dmesher.hpp \
     uniformgridmesher.hpp
@@ -27,6 +28,7 @@ cpp_files = \
     fdmhestonvariancemesher.cpp \
     fdmmeshercomposite.cpp \
     fdmsimpleprocess1dmesher.cpp \
+    gradedcore1dmesher.cpp \
     uniformgridmesher.cpp
 
 if UNITY_BUILD

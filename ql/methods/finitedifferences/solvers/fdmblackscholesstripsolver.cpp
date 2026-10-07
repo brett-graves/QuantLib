@@ -23,6 +23,7 @@
 #include <ql/methods/finitedifferences/meshers/concentrating1dmesher.hpp>
 #include <ql/methods/finitedifferences/meshers/fdmblackscholesmesher.hpp>
 #include <ql/methods/finitedifferences/meshers/fdmmeshercomposite.hpp>
+#include <ql/methods/finitedifferences/meshers/gradedcore1dmesher.hpp>
 #include <ql/methods/finitedifferences/operators/fdmblackscholesop.hpp>
 #include <ql/methods/finitedifferences/operators/fdmlinearoplayout.hpp>
 #include <ql/methods/finitedifferences/solvers/fdmblackscholesstripsolver.hpp>
@@ -328,7 +329,9 @@ namespace QuantLib {
         Size xGrid,
         Real scaleFactor,
         Real eps,
-        Real spotDensity) {
+        Real spotDensity,
+        Real coreStdDevs,
+        Real coreFraction) {
         QL_REQUIRE(!strikes.empty(), "no strikes given");
         Real xMin = QL_MAX_REAL, xMax = -QL_MAX_REAL;
         for (Real strike : strikes) {
@@ -341,8 +344,39 @@ namespace QuantLib {
         const Real x0 = std::log(process->x0());
         QL_REQUIRE(xMin < x0 && x0 < xMax,
                    "spot outside the strip's mesh range");
-        return ext::make_shared<Concentrating1dMesher>(
-            xMin, xMax, xGrid, std::make_pair(x0, spotDensity), true);
+        if (coreStdDevs == Null<Real>())
+            return ext::make_shared<Concentrating1dMesher>(
+                xMin, xMax, xGrid, std::make_pair(x0, spotDensity), true);
+        QL_REQUIRE(coreStdDevs > 0.0,
+                   "core width must be positive, got " << coreStdDevs
+                   << " standard deviations");
+        return ext::make_shared<GradedCore1dMesher>(
+            xMin, xMax, xGrid, x0,
+            coreStdDevs * atmStdDev(process, maturity, dividends), coreFraction);
+    }
+
+    Real FdmBlackScholesStripSolver::atmStdDev(
+        const ext::shared_ptr<GeneralizedBlackScholesProcess>& process,
+        Time maturity,
+        const DividendSchedule& dividends) {
+        QL_REQUIRE(maturity > 0.0, "positive maturity required");
+        const Handle<YieldTermStructure>& rTS = process->riskFreeRate();
+        const Handle<YieldTermStructure>& qTS = process->dividendYield();
+        // spot-model forward: S Q(T)/R(T) less each dividend carried
+        // from its ex-date to T (FractionalDividend at the forward then)
+        const Real growth = qTS->discount(maturity) / rTS->discount(maturity);
+        Real forward = process->x0() * growth;
+        for (const auto& d : dividends) {
+            const Time t = process->time(d->date());
+            if (t < 0.0 || t > maturity)
+                continue;
+            const Real carryToT = growth * rTS->discount(t) / qTS->discount(t);
+            const Real forwardAtT = process->x0() * qTS->discount(t) / rTS->discount(t);
+            forward -= d->amount(forwardAtT) * carryToT;
+        }
+        QL_REQUIRE(forward > 0.0, "non-positive forward " << forward);
+        return process->blackVolatility()->blackVol(maturity, forward, true)
+            * std::sqrt(maturity);
     }
 
 }

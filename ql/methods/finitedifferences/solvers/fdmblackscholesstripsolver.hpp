@@ -92,10 +92,24 @@ namespace QuantLib {
 
         FdmBlackScholesStripResults solve() const;
 
-        /*! The strip mesh: the union over \p strikes of
-            FdmBlackScholesMesher::xRange, concentrated at spot with
-            density \p spotDensity relative to the range width, spot a
-            required node.
+        /*! The strip mesh on the union over \p strikes of
+            FdmBlackScholesMesher::xRange, with spot a node.
+
+            With \p coreStdDevs null, the mesh is concentrated at spot
+            with density \p spotDensity relative to the range width
+            (Concentrating1dMesher).  Otherwise it is a
+            GradedCore1dMesher: a uniform core of half width
+            \p coreStdDevs ATM standard deviations around ln spot
+            holding \p coreFraction of the nodes, geometrically graded
+            out to the range ends.  The ATM standard deviation is
+            \f$ \sigma(T, F) \sqrt{T} \f$ at the forward \f$ F \f$
+            net of the cash dividends in \p dividends.
+
+            The graded core keeps its width in standard deviations when
+            the range widens (a deep-wing strike with a high implied vol
+            widens the union range for every strike of the expiry),
+            where a relative density spreads the nodes near spot with
+            the range (chloride #593).
         */
         static ext::shared_ptr<Fdm1dMesher> stripMesher(
             const ext::shared_ptr<GeneralizedBlackScholesProcess>& process,
@@ -105,7 +119,15 @@ namespace QuantLib {
             Size xGrid,
             Real scaleFactor = 2.0,
             Real eps = 0.0001,
-            Real spotDensity = 0.1);
+            Real spotDensity = 0.1,
+            Real coreStdDevs = Null<Real>(),
+            Real coreFraction = 0.5);
+
+        //! ATM standard deviation \f$ \sigma(T, F) \sqrt{T} \f$ (see stripMesher)
+        static Real atmStdDev(
+            const ext::shared_ptr<GeneralizedBlackScholesProcess>& process,
+            Time maturity,
+            const DividendSchedule& dividends);
 
       private:
         ext::shared_ptr<GeneralizedBlackScholesProcess> process_;

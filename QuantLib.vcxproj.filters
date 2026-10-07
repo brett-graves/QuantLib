@@ -4188,6 +4188,9 @@
     <ClInclude Include="ql\methods\finitedifferences\meshers\fdmsimpleprocess1dmesher.hpp">
       <Filter>methods\finitedifferences\meshers</Filter>
     </ClInclude>
+    <ClInclude Include="ql\methods\finitedifferences\meshers\gradedcore1dmesher.hpp">
+      <Filter>methods\finitedifferences\meshers</Filter>
+    </ClInclude>
     <ClInclude Include="ql\methods\finitedifferences\meshers\predefined1dmesher.hpp">
       <Filter>methods\finitedifferences\meshers</Filter>
     </ClInclude>
@@ -7172,6 +7175,9 @@
       <Filter>methods\finitedifferences\solvers</Filter>
     </ClCompile>
     <ClCompile Include="ql\methods\finitedifferences\meshers\fdmsimpleprocess1dmesher.cpp">
+      <Filter>methods\finitedifferences\meshers</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\methods\finitedifferences\meshers\gradedcore1dmesher.cpp">
       <Filter>methods\finitedifferences\meshers</Filter>
     </ClCompile>
     <ClCompile Include="ql\methods\finitedifferences\meshers\uniformgridmesher.cpp">
