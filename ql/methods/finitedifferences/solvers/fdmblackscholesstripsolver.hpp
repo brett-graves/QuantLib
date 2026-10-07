@@ -34,10 +34,13 @@
     stopping times (ex-dates, ex-dates + 1e-5, extra stopping times and
     Fdm1DimSolver's theta snapshot), the spot cash-dividend jump and the
     spline read-out of value and theta, so its values are the engine's
-    on the same mesh and time grid.  Delta and gamma differ: they are the
-    three-point stencil in S at the spot node, which must be an interior
-    mesh node (stripMesher() makes it one), because the spline's
-    derivatives are wrong next to an American exercise boundary.
+    on the same mesh and time grid.  Delta and gamma differ, because the
+    spline's derivatives are wrong next to an American exercise boundary:
+    they are the derivatives at the spot node of the polynomial in S
+    through the nodes within two of it that lie on its side of the
+    exercise boundary (a quartic away from it, one-sided next to it,
+    exact inside the exercise region).  Spot must be a mesh node at least
+    two nodes from either end; stripMesher() makes it one.
 
     Supported: local vol, cash or fractional dividends under the spot
     model, American or European exercise, no damping steps.  The exact

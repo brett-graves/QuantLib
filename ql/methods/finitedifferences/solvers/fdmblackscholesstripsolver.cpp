@@ -179,6 +179,77 @@ namespace QuantLib {
         };
 
 
+        // Nodes either side of spot that the delta/gamma read-out may use.
+        const Size readoutHalfWidth = 2;
+
+        // Fornberg's weights: w1[k], w2[k] give the first and second
+        // derivative at 0 of the polynomial through (z[k], f[k]), k < m.
+        void fornbergWeights(const Real* z, Size m, Real* w1, Real* w2) {
+            Real c[2*readoutHalfWidth+1][3] = {};
+            c[0][0] = 1.0;
+            Real c1 = 1.0, c4 = z[0];
+            for (Size i=1; i < m; ++i) {
+                const Size mn = std::min<Size>(i, 2);
+                Real c2 = 1.0;
+                const Real c5 = c4;
+                c4 = z[i];
+                for (Size jj=0; jj < i; ++jj) {
+                    const Real c3 = z[i] - z[jj];
+                    c2 *= c3;
+                    if (jj == i-1) {
+                        for (Size k=mn; k >= 1; --k)
+                            c[i][k] = c1*(Real(k)*c[i-1][k-1] - c5*c[i-1][k])/c2;
+                        c[i][0] = -c1*c5*c[i-1][0]/c2;
+                    }
+                    for (Size k=mn; k >= 1; --k)
+                        c[jj][k] = (c4*c[jj][k] - Real(k)*c[jj][k-1])/c3;
+                    c[jj][0] = c4*c[jj][0]/c3;
+                }
+                c1 = c2;
+            }
+            for (Size k=0; k < m; ++k) {
+                w1[k] = c[k][1];
+                w2[k] = c[k][2];
+            }
+        }
+
+        // dV/dS and d2V/dS2 at node i0 of column j: the polynomial in S
+        // through the run of nodes within readoutHalfWidth of i0 that sit
+        // on the same side of the exercise boundary as i0 (all exactly on
+        // the exercise value, or all off it).  Away from the boundary that
+        // is the quartic through five nodes; next to it the polynomial is
+        // one-sided and never interpolates across the kink; inside the
+        // exercise region it is exact (V = payoff, linear in S).  A
+        // single boundary leaves at least three nodes in the run.
+        std::pair<Real, Real> regionDerivatives(const std::vector<Real>& s,
+                                                const Array& v,
+                                                const Matrix& exercise,
+                                                Size j, Size i0, bool american) {
+            const auto onPayoff = [&](Size i) {
+                return american && v[i] == exercise[i][j];
+            };
+            const bool side = onPayoff(i0);
+            Size lo = i0, hi = i0;
+            while (lo > i0 - readoutHalfWidth && onPayoff(lo-1) == side)
+                --lo;
+            while (hi < i0 + readoutHalfWidth && onPayoff(hi+1) == side)
+                ++hi;
+            const Size m = hi - lo + 1;
+            QL_ENSURE(m >= 3, "fewer than three nodes on spot's side of the"
+                      " exercise boundary");
+            Real z[2*readoutHalfWidth+1], w1[2*readoutHalfWidth+1], w2[2*readoutHalfWidth+1];
+            for (Size k=0; k < m; ++k)
+                z[k] = s[lo+k] - s[i0];
+            fornbergWeights(z, m, w1, w2);
+            Real d1 = 0.0, d2 = 0.0;
+            for (Size k=0; k < m; ++k) {
+                d1 += w1[k]*v[lo+k];
+                d2 += w2[k]*v[lo+k];
+            }
+            return std::make_pair(d1, d2);
+        }
+
+
         // Exact average of a plain-vanilla payoff over node i's ln S cell
         // [x_i - dminus/2, x_i + dplus/2] (FdmCellAveragingInnerValue's
         // cell); boundary nodes take the payoff at the node, as there.
@@ -305,24 +376,23 @@ namespace QuantLib {
         model.rollback(v, maturity, 0.0, tGrid_, condition);
 
         // Value and theta: Fdm1DimSolver's read-out, a monotonic natural
-        // cubic spline in ln S.  Delta and gamma: the three-point stencil
-        // in S at the spot node.  The spline's derivatives are not usable
-        // near an American exercise boundary: the exercise value's kink
-        // in V'' bends the spline across the neighbouring nodes, so at a
-        // spot whose neighbours all sit exactly on the payoff it reports
-        // delta < -1 and negative gamma, and it does not converge under
-        // refinement.  The stencil is exact on a payoff linear in S, and
-        // matches the spline to O(h^2) where the solution is smooth.
+        // cubic spline in ln S.  Delta and gamma: the polynomial in S
+        // through the nodes around spot that lie on spot's side of the
+        // American exercise boundary (see regionDerivatives).  The spline's
+        // derivatives are not usable near that boundary: the kink in V''
+        // bends the spline across the neighbouring nodes, so at a spot
+        // whose neighbours all sit exactly on the payoff it reports delta
+        // < -1 and negative gamma, and it does not converge under
+        // refinement.
         const Real spot = process_->x0();
         const Real x0 = std::log(spot);
         Size i0 = std::lower_bound(x.begin(), x.end(), x0) - x.begin();
         if (i0 == n || (i0 > 0 && x0 - x[i0-1] < x[i0] - x0))
             --i0;
-        QL_REQUIRE(i0 > 0 && i0+1 < n && std::fabs(x[i0] - x0) < 1e-10,
+        QL_REQUIRE(i0 >= readoutHalfWidth && i0 + readoutHalfWidth < n
+                   && std::fabs(x[i0] - x0) < 1e-10,
                    "spot " << spot << " is not an interior node of the strip mesh;"
                    " use stripMesher(), which makes it one");
-        const Real sm = spots[i0-1], s0 = spots[i0], sp = spots[i0+1];
-        const Real hm = s0 - sm, hp = sp - s0;
         FdmBlackScholesStripResults results;
         results.value.resize(m);
         results.delta.resize(m);
@@ -337,10 +407,10 @@ namespace QuantLib {
             }
             const MonotonicCubicNaturalSpline spline(x.begin(), x.end(), column.begin());
             results.value[j] = spline(x0);
-            const Real vm = column[i0-1], v0 = column[i0], vp = column[i0+1];
-            results.delta[j] = (-hp/(hm*(hm+hp)))*vm + ((hp-hm)/(hm*hp))*v0
-                + (hm/(hp*(hm+hp)))*vp;
-            results.gamma[j] = 2.0*(vm/(hm*(hm+hp)) - v0/(hm*hp) + vp/(hp*(hm+hp)));
+            const std::pair<Real, Real> d = regionDerivatives(
+                spots, column, exercise, j, i0, american_);
+            results.delta[j] = d.first;
+            results.gamma[j] = d.second;
             const MonotonicCubicNaturalSpline thetaSpline(
                 x.begin(), x.end(), thetaColumn.begin());
             // Fdm1DimSolver::thetaAt has no snapshot to difference
