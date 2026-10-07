@@ -278,13 +278,14 @@ namespace QuantLib {
         Size tGrid,
         Real illegalLocalVolOverwrite,
         std::vector<Time> stoppingTimes,
-        bool exactCellAverage)
+        bool exactCellAverage,
+        Size dampingSteps)
     : process_(std::move(process)), maturityDate_(maturityDate),
       payoffs_(std::move(payoffs)), american_(american),
       dividends_(std::move(dividends)), mesher_(std::move(mesher)),
       tGrid_(tGrid), illegalLocalVolOverwrite_(illegalLocalVolOverwrite),
       stoppingTimes_(std::move(stoppingTimes)),
-      exactCellAverage_(exactCellAverage) {
+      exactCellAverage_(exactCellAverage), dampingSteps_(dampingSteps) {
         QL_REQUIRE(process_, "null process");
         QL_REQUIRE(mesher_, "null mesher");
         QL_REQUIRE(!payoffs_.empty(), "no payoffs given");
@@ -355,10 +356,20 @@ namespace QuantLib {
         const auto op = ext::make_shared<FdmBlackScholesOp>(
             mesher, process_, payoffs_.front()->strike(),
             true, illegalLocalVolOverwrite_, 0);
+        // FdmBackwardSolver's damping: the first dampingSteps of
+        // tGrid + dampingSteps equal steps are implicit Euler (Douglas at
+        // theta 1), which smooths the payoff kink before Crank-Nicolson.
+        const std::vector<Time> stopTimes(stops.begin(), stops.end());
+        Time dampingTo = maturity;
+        if (dampingSteps_ > 0) {
+            dampingTo = maturity - maturity*Real(dampingSteps_)/Real(tGrid_ + dampingSteps_);
+            FiniteDifferenceModel<StripDouglasScheme> damping(
+                StripDouglasScheme(1.0, op), stopTimes);
+            damping.rollback(v, maturity, dampingTo, dampingSteps_, condition);
+        }
         FiniteDifferenceModel<StripDouglasScheme> model(
-            StripDouglasScheme(0.5, op),
-            std::vector<Time>(stops.begin(), stops.end()));
-        model.rollback(v, maturity, 0.0, tGrid_, condition);
+            StripDouglasScheme(0.5, op), stopTimes);
+        model.rollback(v, dampingTo, 0.0, tGrid_, condition);
 
         // Value and theta: Fdm1DimSolver's read-out, a monotonic natural
         // cubic spline in ln S.  Delta and gamma: the polynomial in S
