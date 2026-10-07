@@ -27,6 +27,7 @@
 #include <ql/methods/finitedifferences/operators/fdmlinearoplayout.hpp>
 #include <ql/methods/finitedifferences/solvers/fdmblackscholesstripsolver.hpp>
 #include <ql/methods/finitedifferences/stepcondition.hpp>
+#include <ql/methods/finitedifferences/utilities/fdmdividendhandler.hpp>
 #include <ql/methods/finitedifferences/utilities/fdminnervaluecalculator.hpp>
 #include <algorithm>
 #include <cmath>
@@ -126,14 +127,19 @@ namespace QuantLib {
                 Time snapshotTime)
             : s_(std::move(spots)), dividends_(std::move(dividends)),
               exercise_(std::move(exercise)), american_(american),
-              snapshotTime_(snapshotTime) {}
+              snapshotTime_(snapshotTime) {
+                jumps_.reserve(dividends_.size());
+                for (const auto& d : dividends_)
+                    jumps_.emplace_back(s_, *d.second);
+            }
 
             void applyTo(Matrix& a, Time t) const override {
                 // FdmDividendHandler applies the first dividend whose time
                 // matches exactly
-                for (const auto& d : dividends_) {
-                    if (d.first == t) {
-                        applyDividend(a, *d.second);
+                for (Size d=0; d < dividends_.size(); ++d) {
+                    if (dividends_[d].first == t) {
+                        const Matrix copy(a);
+                        jumps_[d].apply(copy, a);
                         break;
                     }
                 }
@@ -146,30 +152,10 @@ namespace QuantLib {
             const Matrix& snapshot() const { return snapshot_; }
 
           private:
-            // FdmDividendHandler's jump for every column: a monotone cubic
-            // spline in ln S read at ln(max(s[0], s[k] - D)) (chloride
-            // #593; linear interpolation reads a convex value high).
-            void applyDividend(Matrix& a, const Dividend& div) const {
-                const Matrix copy(a);
-                const Size n = s_.size();
-                std::vector<Real> lnS(n), lnTarget(n), column(n);
-                for (Size k=0; k < n; ++k) {
-                    lnS[k] = std::log(s_[k]);
-                    lnTarget[k] = std::log(
-                        std::max(s_[0], s_[k] - div.amount(s_[k])));
-                }
-                for (Size j=0; j < a.columns(); ++j) {
-                    for (Size k=0; k < n; ++k)
-                        column[k] = copy[k][j];
-                    MonotonicCubicNaturalSpline interp(
-                        lnS.begin(), lnS.end(), column.begin());
-                    for (Size k=0; k < n; ++k)
-                        a[k][j] = interp(lnTarget[k], true);
-                }
-            }
-
             const std::vector<Real> s_;
             const std::vector<std::pair<Time, ext::shared_ptr<Dividend> > > dividends_;
+            // FdmDividendHandler's jump, one per dividend (chloride #593)
+            std::vector<detail::FdmDividendJump> jumps_;
             const Matrix exercise_;
             const bool american_;
             const Time snapshotTime_;

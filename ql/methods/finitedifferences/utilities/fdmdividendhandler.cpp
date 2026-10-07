@@ -20,11 +20,80 @@
 */
 
 #include <ql/time/daycounter.hpp>
-#include <ql/math/interpolations/cubicinterpolation.hpp>
 #include <ql/methods/finitedifferences/operators/fdmlinearoplayout.hpp>
 #include <ql/methods/finitedifferences/utilities/fdmdividendhandler.hpp>
 
+#include <algorithm>
+#include <cmath>
+
 namespace QuantLib {
+
+    namespace detail {
+
+        FdmDividendJump::FdmDividendJump(const std::vector<Real>& s,
+                                         const Dividend& div)
+        : first_(s.size()), lo_(s.size()), w_(s.size()) {
+            const Size n = s.size();
+            QL_REQUIRE(n >= 4, "dividend jump needs at least 4 grid nodes");
+            std::vector<Real> x(n);
+            for (Size k=0; k<n; ++k)
+                x[k] = std::log(s[k]);
+            for (Size k=0; k<n; ++k) {
+                // Dividend::amount(underlying): FractionalDividend scales
+                // with the spot at the ex-date (rate * s), FixedDividend
+                // returns its constant amount.
+                const Real t =
+                    std::log(std::max(s[0], s[k] - div.amount(s[k])));
+                // bracket x[i] <= t <= x[i+1]
+                Size i = std::upper_bound(x.begin(), x.end(), t) - x.begin();
+                i = std::min(i == 0 ? Size(0) : i - 1, n - 2);
+                lo_[k] = i;
+                const Size f = std::min(i == 0 ? Size(0) : i - 1, n - 4);
+                first_[k] = f;
+                for (Size m=0; m<4; ++m) {
+                    Real w = 1.0;
+                    for (Size l=0; l<4; ++l)
+                        if (l != m)
+                            w *= (t - x[f+l]) / (x[f+m] - x[f+l]);
+                    w_[k][m] = w;
+                }
+            }
+        }
+
+        void FdmDividendJump::apply(const Array& in, Array& out) const {
+            for (Size k=0; k<w_.size(); ++k) {
+                const Size f = first_[k], i = lo_[k];
+                const std::array<Real, 4>& w = w_[k];
+                const Real v = w[0]*in[f] + w[1]*in[f+1]
+                             + w[2]*in[f+2] + w[3]*in[f+3];
+                const Real a = in[i], b = in[i+1];
+                out[k] = std::min(std::max(v, std::min(a, b)),
+                                  std::max(a, b));
+            }
+        }
+
+        void FdmDividendJump::apply(const Matrix& in, Matrix& out) const {
+            const Size cols = in.columns();
+            for (Size k=0; k<w_.size(); ++k) {
+                const Size f = first_[k], i = lo_[k];
+                const std::array<Real, 4>& w = w_[k];
+                const Real* y0 = in.row_begin(f);
+                const Real* y1 = in.row_begin(f+1);
+                const Real* y2 = in.row_begin(f+2);
+                const Real* y3 = in.row_begin(f+3);
+                const Real* ya = in.row_begin(i);
+                const Real* yb = in.row_begin(i+1);
+                Real* o = out.row_begin(k);
+                for (Size j=0; j<cols; ++j) {
+                    const Real v = w[0]*y0[j] + w[1]*y1[j]
+                                 + w[2]*y2[j] + w[3]*y3[j];
+                    o[j] = std::min(std::max(v, std::min(ya[j], yb[j])),
+                                    std::max(ya[j], yb[j]));
+                }
+            }
+        }
+
+    }
 
 
     FdmDividendHandler::FdmDividendHandler(
@@ -63,6 +132,11 @@ namespace QuantLib {
          for (Size i = 0; i < x_.size(); ++i) {
              x_[i] = std::exp(tmp[i*spacing]);
          }
+
+         const std::vector<Real> s(x_.begin(), x_.end());
+         jumps_.reserve(dividendCashflows_.size());
+         for (const auto& d : dividendCashflows_)
+             jumps_.emplace_back(s, *d);
     }
 
     const std::vector<Time>& FdmDividendHandler::dividendTimes() const {
@@ -83,37 +157,15 @@ namespace QuantLib {
         auto iter = std::find(dividendTimes_.begin(), dividendTimes_.end(), t);
 
         if (iter != dividendTimes_.end()) {
-            // Dispatch to Dividend::amount(underlying) so FractionalDividend
-            // scales with the simulated spot at the ex-date (rate * spot)
-            // instead of being frozen at a single nominal at construction.
-            // FixedDividend ignores the argument and returns its constant
-            // amount, preserving legacy behaviour for cash divs.
-            const auto& div = dividendCashflows_[iter - dividendTimes_.begin()];
-
-            // The jump V(S) <- V(S - D) reads the value between nodes.
-            // Linear interpolation of a convex value function always reads
-            // high, by O(h^2) per ex-date, and the error accumulates over
-            // every dividend in the option's life (chloride #593: +$0.15 on
-            // a 2y SPY call at 150 nodes).  A monotone cubic spline in
-            // ln S -- the interpolant Fdm1DimSolver reads the result with --
-            // removes that term; the Hyman filter keeps it from overshooting
-            // near a payoff kink when the ex-date is close to expiry.
-            Array lnX(x_.size());
-            Array lnTarget(x_.size());
-            for (Size k=0; k<x_.size(); ++k) {
-                lnX[k] = std::log(x_[k]);
-                lnTarget[k] = std::log(
-                    std::max(x_[0], x_[k] - div->amount(x_[k])));
-            }
+            // See detail::FdmDividendJump (chloride #593).
+            const detail::FdmDividendJump& jump =
+                jumps_[iter - dividendTimes_.begin()];
 
             if (mesher_->layout()->dim().size() == 1) {
-                MonotonicCubicNaturalSpline interp(
-                    lnX.begin(), lnX.end(), aCopy.begin());
-                for (Size k=0; k<x_.size(); ++k)
-                    a[k] = interp(lnTarget[k], true);
+                jump.apply(aCopy, a);
             }
             else {
-                Array tmp(x_.size());
+                Array tmp(x_.size()), jumped(x_.size());
                 Size xSpacing = mesher_->layout()->spacing()[equityDirection_];
 
                 for (Size i=0; i<mesher_->layout()->dim().size(); ++i) {
@@ -124,12 +176,9 @@ namespace QuantLib {
                                 Size index = j*ySpacing + k*xSpacing;
                                 tmp[k] = aCopy[index];
                             }
-                            MonotonicCubicNaturalSpline interp(
-                                lnX.begin(), lnX.end(), tmp.begin());
-                            for (Size k=0; k<x_.size(); ++k) {
-                                Size index = j*ySpacing + k*xSpacing;
-                                a[index] = interp(lnTarget[k], true);
-                            }
+                            jump.apply(tmp, jumped);
+                            for (Size k=0; k<x_.size(); ++k)
+                                a[j*ySpacing + k*xSpacing] = jumped[k];
                         }
                     }
                 }

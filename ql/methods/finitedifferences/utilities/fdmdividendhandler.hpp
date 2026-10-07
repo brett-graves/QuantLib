@@ -27,13 +27,50 @@
 #define quantlib_fdm_dividend_handler_hpp
 
 #include <ql/instruments/dividendschedule.hpp>
+#include <ql/math/matrix.hpp>
 #include <ql/methods/finitedifferences/stepcondition.hpp>
 #include <ql/methods/finitedifferences/meshers/fdmmesher.hpp>
+#include <array>
+#include <vector>
 
 namespace QuantLib {
     
     class DayCounter;
-    
+
+    namespace detail {
+
+        /*! The cash-dividend jump V(s) <- V(max(s_0, s - D(s))) on a fixed
+            grid s_0 < ... < s_{n-1} (spot dividend model).
+
+            The value is read between nodes with a 4-point Lagrange cubic
+            in ln s, clamped to the two bracketing node values.  Linear
+            interpolation of a convex value function reads high by
+            O(h^2) at every ex-date, and the error accumulates over every
+            dividend in the option's life (chloride #593: +$0.15 on a 2y
+            SPY call at 150 nodes); the cubic removes that term.  The
+            clamp keeps it from overshooting near a payoff kink when the
+            ex-date is close to expiry; it binds only where the data is
+            not locally monotone and convex.
+
+            The stencil and weights depend on the grid and the dividend
+            only, so they are built once and every application costs four
+            multiply-adds per node and column.
+        */
+        class FdmDividendJump {
+          public:
+            FdmDividendJump(const std::vector<Real>& s, const Dividend& div);
+            //! out[k] = jumped in[k]; in and out must not alias
+            void apply(const Array& in, Array& out) const;
+            //! the same for every column of a nodes x columns matrix
+            void apply(const Matrix& in, Matrix& out) const;
+
+          private:
+            std::vector<Size> first_, lo_;
+            std::vector<std::array<Real, 4> > w_;
+        };
+
+    }
+
     class FdmDividendHandler : public StepCondition<Array> {
       public:
         FdmDividendHandler(const DividendSchedule& schedule,
@@ -67,6 +104,8 @@ namespace QuantLib {
         std::vector<ext::shared_ptr<Dividend>> dividendCashflows_;
         const ext::shared_ptr<FdmMesher> mesher_;
         const Size equityDirection_;
+        // one precomputed jump per dividend, parallel to dividendTimes_
+        std::vector<detail::FdmDividendJump> jumps_;
     };
 }
 #endif
