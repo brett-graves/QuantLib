@@ -116,6 +116,9 @@ namespace QuantLib {
         //@{
         //! Forward used to map strike to log-moneyness at time t.
         Real forward(Time t) const;
+        //! Forward at time t of the given spot paying this surface's dividends
+        //! on this surface's curves.
+        Real forward(Time t, Real spot) const;
         //! Pillar times, ascending.
         const std::vector<Time>& times() const { return times_; }
         Natural degree() const { return degree_; }
@@ -126,12 +129,20 @@ namespace QuantLib {
         //! Total variance at (k, t) under the time rule above.
         Real totalVariance(Real k, Time t) const;
         //! Local variance at (k, t); raises where g <= 0 or w <= 0.
-        Real localVariance(Real k, Time t) const;
+        /*! With a nonzero \p shift, k is the log-moneyness of a diffusion
+            whose (pure) forward differs from this surface's by a factor
+            \f$ e^{s} \f$ constant between dividend dates, and the slices
+            are read at \f$ k + s \f$: the smile held fixed in absolute
+            strike (sticky strike).  Gatheral's \f$ g \f$ then takes the
+            diffusion's own k, and \f$ \partial_t w \f$ is unchanged
+            because \f$ s \f$ does not move with t. */
+        Real localVariance(Real k, Time t, Real shift = 0.0) const;
         //! localVariance() at one time for n coordinates.
         /*! Where localVariance() would raise, out[i] is Null<Real>()
             instead; returns the number of such points.  k and out may be
             the same array. */
-        Size localVarianceSlice(Time t, const Real* k, Size n, Real* out) const;
+        Size localVarianceSlice(Time t, const Real* k, Size n, Real* out,
+                                Real shift = 0.0) const;
         //! PV at t of the cash dividends still to come (zero without any).
         Real dividendPV(Time t) const;
         //! Strike coordinate the slices are read at: k, or x in pure mode.
@@ -183,10 +194,24 @@ namespace QuantLib {
         come from the surface, and the local vol of S is
         sigma_X(x, t) (S - D)/S, zero at or below D(t).  localVolSlice()
         computes the bracket and forward once per time.
+
+        With a diffusion spot, the local vol is that of a diffusion started
+        at that spot instead of the surface's own, with the smile held fixed
+        in absolute strike (sticky strike).  Rates, carry and dividends stay
+        the surface's.  The diffusion's (pure) forward
+        \f$ F_d - D \f$ is then \f$ (S_d - D_0)/(S - D_0) \f$ times the
+        surface's, so its coordinate y and the surface's x differ by the
+        constant \f$ s = \ln((F_d - D)/(F - D)) \f$ between dividend dates
+        and Dupire is exact in y with the slices read at y + s (see
+        BSplineVarianceSurface::localVariance).  At the surface's own spot
+        s = 0 and the result is the anchored local vol.
     */
     class BSplineLocalVolSurface : public LocalVolTermStructure {
       public:
         explicit BSplineLocalVolSurface(ext::shared_ptr<BSplineVarianceSurface> blackSurface);
+        //! Local vol of a diffusion started at \p diffusionSpot (sticky strike).
+        BSplineLocalVolSurface(ext::shared_ptr<BSplineVarianceSurface> blackSurface,
+                               Handle<Quote> diffusionSpot);
 
         const Date& referenceDate() const override;
         DayCounter dayCounter() const override;
@@ -204,7 +229,11 @@ namespace QuantLib {
         Volatility localVolImpl(Time t, Real underlyingLevel) const override;
 
       private:
+        //! Forward of the priced diffusion at t (the surface's own when anchored).
+        Real diffusionForward(Time t, Real surfaceForward) const;
+
         ext::shared_ptr<BSplineVarianceSurface> blackSurface_;
+        Handle<Quote> diffusionSpot_;
     };
 
 }

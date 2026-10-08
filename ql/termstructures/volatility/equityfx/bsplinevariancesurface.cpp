@@ -216,10 +216,12 @@ namespace QuantLib {
 
     Real BSplineVarianceSurface::maxStrike() const { return QL_MAX_REAL; }
 
-    Real BSplineVarianceSurface::forward(Time t) const {
+    Real BSplineVarianceSurface::forward(Time t) const { return forward(t, spot_->value()); }
+
+    Real BSplineVarianceSurface::forward(Time t, Real spot) const {
         // The FD engines' spot dividend model: each cash dividend grows at
         // r - q from its ex-date (gh #511), as ParametricVolTermStructure.
-        return cashDividendForward(spot_->value(), dividends_, *riskFreeRate_.currentLink(),
+        return cashDividendForward(spot, dividends_, *riskFreeRate_.currentLink(),
                                    *dividendYield_.currentLink(), referenceDate(), dayCounter(),
                                    t);
     }
@@ -300,18 +302,19 @@ namespace QuantLib {
         return (1.0 - a) * sliceTotalVariance(lo, k) + a * sliceTotalVariance(hi, k);
     }
 
-    Real BSplineVarianceSurface::localVariance(Real k, Time t) const {
+    Real BSplineVarianceSurface::localVariance(Real k, Time t, Real shift) const {
         Size lo, hi;
         Real a;
         bracket(t, lo, hi, a);
         std::array<Real, 3> w;
         Real dwdt;
+        const Real x = k + shift;
         if (lo == hi) {
-            const std::array<Real, 3> w0 = derivatives(0, k);
+            const std::array<Real, 3> w0 = derivatives(0, x);
             w = {a * w0[0], a * w0[1], a * w0[2]};
             dwdt = w0[0] / times_.front();
         } else {
-            const std::array<Real, 3> wl = derivatives(lo, k), wh = derivatives(hi, k);
+            const std::array<Real, 3> wl = derivatives(lo, x), wh = derivatives(hi, x);
             for (Size j = 0; j < 3; ++j)
                 w[j] = (1.0 - a) * wl[j] + a * wh[j];
             dwdt = (wh[0] - wl[0]) / (times_[hi] - times_[lo]);
@@ -328,7 +331,7 @@ namespace QuantLib {
     }
 
     Size BSplineVarianceSurface::localVarianceSlice(Time t, const Real* k, Size n,
-                                                    Real* out) const {
+                                                    Real* out, Real shift) const {
         Size lo, hi;
         Real a;
         bracket(t, lo, hi, a);
@@ -337,12 +340,13 @@ namespace QuantLib {
         for (Size j = 0; j < n; ++j) {
             std::array<Real, 3> w;
             Real dwdt;
+            const Real x = k[j] + shift;
             if (lo == hi) {
-                const std::array<Real, 3> w0 = derivatives(0, k[j]);
+                const std::array<Real, 3> w0 = derivatives(0, x);
                 w = {a * w0[0], a * w0[1], a * w0[2]};
                 dwdt = w0[0] / dt;
             } else {
-                const std::array<Real, 3> wl = derivatives(lo, k[j]), wh = derivatives(hi, k[j]);
+                const std::array<Real, 3> wl = derivatives(lo, x), wh = derivatives(hi, x);
                 for (Size i = 0; i < 3; ++i)
                     w[i] = (1.0 - a) * wl[i] + a * wh[i];
                 dwdt = (wh[0] - wl[0]) / dt;
@@ -396,6 +400,19 @@ namespace QuantLib {
         registerWith(blackSurface_);
     }
 
+    BSplineLocalVolSurface::BSplineLocalVolSurface(
+        ext::shared_ptr<BSplineVarianceSurface> blackSurface, Handle<Quote> diffusionSpot)
+    : BSplineLocalVolSurface(std::move(blackSurface)) {
+        QL_REQUIRE(!diffusionSpot.empty(), "diffusionSpot must not be empty");
+        diffusionSpot_ = std::move(diffusionSpot);
+        registerWith(diffusionSpot_);
+    }
+
+    Real BSplineLocalVolSurface::diffusionForward(Time t, Real surfaceForward) const {
+        return diffusionSpot_.empty() ? surfaceForward :
+                                        blackSurface_->forward(t, diffusionSpot_->value());
+    }
+
     const Date& BSplineLocalVolSurface::referenceDate() const {
         return blackSurface_->referenceDate();
     }
@@ -415,8 +432,20 @@ namespace QuantLib {
             blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
         if (d != 0.0 && underlyingLevel <= d)
             return 0.0;
-        const Real x = blackSurface_->coordinate(t, underlyingLevel);
-        const Real sigma = std::sqrt(blackSurface_->localVariance(x, t));
+        Real sigma;
+        if (diffusionSpot_.empty()) {
+            const Real x = blackSurface_->coordinate(t, underlyingLevel);
+            sigma = std::sqrt(blackSurface_->localVariance(x, t));
+        } else {
+            const Real fwd = blackSurface_->forward(t);
+            const Real fwdD = diffusionForward(t, fwd);
+            QL_REQUIRE(fwd > d && fwdD > d, "forwards " << fwd << " (surface) and " << fwdD
+                                                        << " (diffusion) at t=" << t
+                                                        << " must be above D(t)=" << d);
+            const Real y = std::log((underlyingLevel - d) / (fwdD - d));
+            const Real shift = std::log((fwdD - d) / (fwd - d));
+            sigma = std::sqrt(blackSurface_->localVariance(y, t, shift));
+        }
         return d == 0.0 ? sigma : sigma * (underlyingLevel - d) / underlyingLevel;
     }
 
@@ -431,15 +460,22 @@ namespace QuantLib {
             t = 1e-14;
         // Forward and D(t) once per time, as localVolImpl() takes them.
         const Real fwd = blackSurface_->forward(t);
+        const Real fwdD = diffusionForward(t, fwd);
         const Real d =
             blackSurface_->pureDividendCoordinates() ? blackSurface_->dividendPV(t) : 0.0;
         QL_REQUIRE(fwd > d, "localVolSlice: forward " << fwd << " not above D(t)=" << d);
+        QL_REQUIRE(fwdD > d,
+                   "localVolSlice: diffusion forward " << fwdD << " not above D(t)=" << d);
+        // Sticky strike: the diffusion's coordinate and the surface's differ
+        // by a constant (zero when anchored).
+        const Real shift = diffusionSpot_.empty() ? 0.0 : std::log((fwdD - d) / (fwd - d));
         for (Size j = 0; j < n; ++j) {
             const Real s = underlyingLevels[j];
             // Below D(t) the pure spot cannot go: any finite x, zeroed below.
-            out[j] = s > d ? std::log((s - d) / (fwd - d)) : 0.0;
+            out[j] = s > d ? std::log((s - d) / (fwdD - d)) : 0.0;
         }
-        Size nIllegal = blackSurface_->localVarianceSlice(t, out.begin(), n, out.begin());
+        Size nIllegal =
+            blackSurface_->localVarianceSlice(t, out.begin(), n, out.begin(), shift);
         for (Size j = 0; j < n; ++j) {
             const Real s = underlyingLevels[j];
             if (d != 0.0 && s <= d) {
