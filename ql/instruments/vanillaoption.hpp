@@ -25,6 +25,8 @@
 #ifndef quantlib_vanilla_option_hpp
 #define quantlib_vanilla_option_hpp
 
+#include <ql/event.hpp>
+#include <ql/exercise.hpp>
 #include <ql/instruments/oneassetoption.hpp>
 #include <ql/instruments/payoffs.hpp>
 #include <ql/instruments/dividendschedule.hpp>
@@ -76,6 +78,20 @@ namespace QuantLib {
              Volatility minVol = 1.0e-7,
              Volatility maxVol = 4.0) const;
         //@}
+    };
+
+    //! Vanilla option alive through its expiry date
+    /*! On the intraday equity-option clock (IntradayActual365Fixed) an
+        expiry date stands for its close, so an option expiring on the
+        evaluation date still has time left: it is expired only once the
+        evaluation date is past its expiry, whatever
+        Settings::includeReferenceDateEvents() says. */
+    class IntradayVanillaOption : public VanillaOption {
+      public:
+        using VanillaOption::VanillaOption;
+        bool isExpired() const override {
+            return detail::simple_event(exercise_->lastDate()).hasOccurred(Date(), true);
+        }
     };
 
 }
