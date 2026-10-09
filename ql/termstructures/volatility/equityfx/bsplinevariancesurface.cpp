@@ -293,38 +293,90 @@ namespace QuantLib {
         a = (t - times_[lo]) / (times_[hi] - times_[lo]);
     }
 
+    BSplineVarianceSurface::Bracket BSplineVarianceSurface::bracketAt(Time t) const {
+        Bracket b{};
+        bracket(t, b.lo, b.hi, b.a);
+        b.dt = b.lo == b.hi ? times_.front() : times_[b.hi] - times_[b.lo];
+        return b;
+    }
+
+    std::array<Real, 4> BSplineVarianceSurface::state(const Bracket& b, Real x) const {
+        if (b.lo == b.hi) {
+            const std::array<Real, 3> w0 = derivatives(0, x);
+            return {b.a * w0[0], b.a * w0[1], b.a * w0[2], w0[0] / b.dt};
+        }
+        const std::array<Real, 3> wl = derivatives(b.lo, x), wh = derivatives(b.hi, x);
+        std::array<Real, 4> s{};
+        for (Size j = 0; j < 3; ++j)
+            s[j] = (1.0 - b.a) * wl[j] + b.a * wh[j];
+        s[3] = (wh[0] - wl[0]) / b.dt;
+        return s;
+    }
+
+    std::array<Real, 4> BSplineVarianceSurface::spend(std::array<Real, 4> s, Time t, Real u,
+                                                      const Bracket& b0, Real x) const {
+        if (u == 0.0)
+            return s;
+        if (t <= spendTime_) {
+            // The session's variance spreads over [0, t0]: (1 - u) of it remains.
+            for (Real& v : s)
+                v *= 1.0 - u;
+            return s;
+        }
+        // Past t0 the elapsed share of the session is gone; dw/dt is unchanged.
+        const std::array<Real, 4> s0 = state(b0, x);
+        for (Size j = 0; j < 3; ++j)
+            s[j] -= u * s0[j];
+        return s;
+    }
+
+    Real BSplineVarianceSurface::dayProgress() const {
+        if (dayProgress_.empty())
+            return 0.0;
+        const Real u = dayProgress_->value();
+        QL_REQUIRE(u >= 0.0 && u <= 1.0, "day progress " << u << " outside [0, 1]");
+        return u;
+    }
+
+    void BSplineVarianceSurface::setDayProgress(const Handle<Quote>& progress,
+                                                const Date& sessionClose) {
+        QL_REQUIRE(!progress.empty(), "day progress handle must not be empty");
+        const Time t0 = dayCounter().yearFraction(referenceDate(), sessionClose);
+        QL_REQUIRE(t0 > 0.0, "session close " << sessionClose
+                                              << " is not after the reference date "
+                                              << referenceDate());
+        if (!dayProgress_.empty())
+            unregisterWith(dayProgress_);
+        dayProgress_ = progress;
+        spendTime_ = t0;
+        registerWith(dayProgress_);
+        notifyObservers();
+    }
+
     Real BSplineVarianceSurface::totalVariance(Real k, Time t) const {
-        Size lo, hi;
-        Real a;
-        bracket(t, lo, hi, a);
-        if (lo == hi)
-            return a * sliceTotalVariance(0, k);
-        return (1.0 - a) * sliceTotalVariance(lo, k) + a * sliceTotalVariance(hi, k);
+        const Real u = dayProgress();
+        const Bracket b = bracketAt(t);
+        if (u == 0.0)
+            return state(b, k)[0];
+        return spend(state(b, k), t, u, bracketAt(spendTime_), k)[0];
     }
 
     Real BSplineVarianceSurface::localVariance(Real k, Time t, Real shift) const {
-        Size lo, hi;
-        Real a;
-        bracket(t, lo, hi, a);
-        std::array<Real, 3> w;
-        Real dwdt;
         const Real x = k + shift;
-        if (lo == hi) {
-            const std::array<Real, 3> w0 = derivatives(0, x);
-            w = {a * w0[0], a * w0[1], a * w0[2]};
-            dwdt = w0[0] / times_.front();
-        } else {
-            const std::array<Real, 3> wl = derivatives(lo, x), wh = derivatives(hi, x);
-            for (Size j = 0; j < 3; ++j)
-                w[j] = (1.0 - a) * wl[j] + a * wh[j];
-            dwdt = (wh[0] - wl[0]) / (times_[hi] - times_[lo]);
-        }
+        const Real u = dayProgress();
+        if (u == 1.0 && t <= spendTime_)
+            return 0.0;
+        const Bracket b = bracketAt(t);
+        std::array<Real, 4> w = state(b, x);
+        if (u != 0.0)
+            w = spend(w, t, u, bracketAt(spendTime_), x);
+        const Real dwdt = w[3];
         QL_REQUIRE(w[0] > 0.0, "non-positive total variance " << w[0] << " at (k=" << k
                                                               << ", t=" << t << ")");
         QL_REQUIRE(dwdt >= 0.0, "calendar arbitrage: dw/dt = " << dwdt << " at (k=" << k
                                                                << ", t=" << t << ")");
-        const Real u = 1.0 - 0.5 * k * w[1] / w[0];
-        const Real g = u * u - 0.25 * w[1] * w[1] * (1.0 / w[0] + 0.25) + 0.5 * w[2];
+        const Real v = 1.0 - 0.5 * k * w[1] / w[0];
+        const Real g = v * v - 0.25 * w[1] * w[1] * (1.0 / w[0] + 0.25) + 0.5 * w[2];
         QL_REQUIRE(g > 0.0, "butterfly arbitrage: g = " << g << " at (k=" << k << ", t=" << t
                                                         << ")");
         return dwdt / g;
@@ -332,25 +384,20 @@ namespace QuantLib {
 
     Size BSplineVarianceSurface::localVarianceSlice(Time t, const Real* k, Size n,
                                                     Real* out, Real shift) const {
-        Size lo, hi;
-        Real a;
-        bracket(t, lo, hi, a);
-        const Real dt = lo == hi ? times_.front() : times_[hi] - times_[lo];
+        const Real dp = dayProgress();
+        if (dp == 1.0 && t <= spendTime_) {
+            std::fill(out, out + n, 0.0);
+            return 0;
+        }
+        const Bracket b = bracketAt(t);
+        const Bracket b0 = dp == 0.0 ? b : bracketAt(spendTime_);
         Size nIllegal = 0;
         for (Size j = 0; j < n; ++j) {
-            std::array<Real, 3> w;
-            Real dwdt;
             const Real x = k[j] + shift;
-            if (lo == hi) {
-                const std::array<Real, 3> w0 = derivatives(0, x);
-                w = {a * w0[0], a * w0[1], a * w0[2]};
-                dwdt = w0[0] / dt;
-            } else {
-                const std::array<Real, 3> wl = derivatives(lo, x), wh = derivatives(hi, x);
-                for (Size i = 0; i < 3; ++i)
-                    w[i] = (1.0 - a) * wl[i] + a * wh[i];
-                dwdt = (wh[0] - wl[0]) / dt;
-            }
+            std::array<Real, 4> w = state(b, x);
+            if (dp != 0.0)
+                w = spend(w, t, dp, b0, x);
+            const Real dwdt = w[3];
             const Real u = 1.0 - 0.5 * k[j] * w[1] / w[0];
             const Real g = u * u - 0.25 * w[1] * w[1] * (1.0 / w[0] + 0.25) + 0.5 * w[2];
             if (!(w[0] > 0.0) || !(dwdt >= 0.0) || !(g > 0.0)) {

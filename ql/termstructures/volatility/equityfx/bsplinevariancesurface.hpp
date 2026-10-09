@@ -31,6 +31,7 @@
 #include <ql/termstructures/volatility/equityfx/localvoltermstructure.hpp>
 #include <ql/termstructures/yieldtermstructure.hpp>
 #include <ql/time/daycounters/actual365fixed.hpp>
+#include <ql/utilities/null.hpp>
 #include <array>
 
 namespace QuantLib {
@@ -74,6 +75,20 @@ namespace QuantLib {
         (BSplineLocalVolSurface) is \f$ \sigma_X (S - D)/S \f$, consistent
         with cash dividend drops.  Without cash dividends both modes are
         identical.
+
+        Day progress (setDayProgress()): with the reference date on the
+        last close and \f$ t_0 \f$ the time of the next session's close,
+        a quote \f$ u \in [0, 1] \f$ gives the share of that session's
+        variance already elapsed.  Every reader of the surface (Black vol,
+        totalVariance(), local variance) then sees the variance still to
+        come,
+        \f[ \tilde w(k, t) = w(k, t) - u\, w(k, \min(t, t_0)), \f]
+        so an option expiring at \f$ t_0 \f$ keeps \f$ (1-u) \f$ of its
+        variance and later expiries lose the elapsed share of the session.
+        \f$ \tilde w \f$ is free of calendar arbitrage whenever \f$ w \f$
+        is.  At \f$ u = 1 \f$ the variance up to \f$ t_0 \f$ is spent and
+        the local variance there is zero.  The pillar slices
+        (sliceTotalVariance()) stay as fitted.
 
         \ingroup termstructures
     */
@@ -126,7 +141,8 @@ namespace QuantLib {
         Real sliceTotalVariance(Size i, Real k) const;
         //! (w, dw/dk, d2w/dk2) of pillar i at k (wings included).
         std::vector<Real> sliceTotalVarianceDerivatives(Size i, Real k) const;
-        //! Total variance at (k, t) under the time rule above.
+        //! Total variance at (k, t) under the time rule above, net of the
+        //! day progress.
         Real totalVariance(Real k, Time t) const;
         //! Local variance at (k, t); raises where g <= 0 or w <= 0.
         /*! With a nonzero \p shift, k is the log-moneyness of a diffusion
@@ -148,11 +164,19 @@ namespace QuantLib {
         //! Strike coordinate the slices are read at: k, or x in pure mode.
         Real coordinate(Time t, Real strike) const;
         bool pureDividendCoordinates() const { return pureDividend_; }
+        //! Elapsed share u of the session closing at spendTime() (0 when unset).
+        Real dayProgress() const;
+        //! Time of the session close the day progress spends toward (Null when unset).
+        Time spendTime() const { return spendTime_; }
         //@}
 
         //! \name Modifiers
         //@{
         void setPureDividendCoordinates(bool pure);
+        //! Spend the elapsed share \p progress of the session closing on \p sessionClose.
+        /*! \p sessionClose must be after the reference date; the quote is
+            observed, so moving it reprices every engine on this surface. */
+        void setDayProgress(const Handle<Quote>& progress, const Date& sessionClose);
         //@}
 
         //! \name Visitability
@@ -177,6 +201,16 @@ namespace QuantLib {
         std::array<Real, 3> derivatives(Size i, Real k) const;
         //! Bracketing pillars and weight for time t (lo == hi before the first pillar).
         void bracket(Time t, Size& lo, Size& hi, Real& a) const;
+        struct Bracket {
+            Size lo, hi;
+            Real a, dt;
+        };
+        Bracket bracketAt(Time t) const;
+        //! (w, dw/dk, d2w/dk2, dw/dt) of the fitted surface at coordinate x.
+        std::array<Real, 4> state(const Bracket& b, Real x) const;
+        //! state() net of the day progress u at time t (b0 brackets spendTime_).
+        std::array<Real, 4> spend(std::array<Real, 4> s, Time t, Real u, const Bracket& b0,
+                                  Real x) const;
 
         Natural degree_;
         std::vector<Time> times_;
@@ -186,6 +220,8 @@ namespace QuantLib {
         Handle<YieldTermStructure> dividendYield_;
         DividendSchedule dividends_;
         bool pureDividend_ = false;
+        Handle<Quote> dayProgress_;
+        Time spendTime_ = Null<Time>();
     };
 
     //! Analytic local vol of a BSplineVarianceSurface.
