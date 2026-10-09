@@ -112,6 +112,8 @@ namespace QuantLib {
         //! \name TermStructure interface
         //@{
         Date maxDate() const override;
+        //! The intraday clock once set, else the construction day counter.
+        DayCounter dayCounter() const override;
         //@}
         //! \name VolatilityTermStructure interface
         //@{
@@ -168,9 +170,9 @@ namespace QuantLib {
         //@{
         void setPureDividendCoordinates(bool pure);
         //! Put the surface on the intraday equity-option clock.
-        /*! The reference date is the previous session's date and the
-            surface's day counter must be the same IntradayActual365Fixed
-            clock (on \p now) as the curves the engines discount on.  Pillar
+        /*! The reference date is the previous session's date, and \p clock
+            (an IntradayActual365Fixed on \p now, the clock of the curves the
+            engines discount on) becomes the surface's day counter.  Pillar
             dates stand for their closes, \p close years after midnight;
             \p fitTime is the instant the slices were fitted at and
             \p sessionClose the close of \p session, both in years from the
@@ -188,7 +190,8 @@ namespace QuantLib {
                               Time sessionClose,
                               Time fitTime,
                               Real fitProgress,
-                              Real close);
+                              Real close,
+                              const DayCounter& clock);
         //@}
 
         //! \name Visitability
@@ -243,6 +246,7 @@ namespace QuantLib {
         // Intraday clock (setIntradayClock); times are years from the
         // reference date's midnight.
         Handle<Quote> now_, progress_;
+        DayCounter clockDc_;
         Time fitTime_ = 0.0, sessionClose_ = 0.0;
         Real fitProgress_ = 0.0;
     };

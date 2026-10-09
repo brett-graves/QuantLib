@@ -218,6 +218,10 @@ namespace QuantLib {
 
     Date BSplineVarianceSurface::maxDate() const { return Date::maxDate(); }
 
+    DayCounter BSplineVarianceSurface::dayCounter() const {
+        return clockDc_.empty() ? BlackVolatilityTermStructure::dayCounter() : clockDc_;
+    }
+
     Real BSplineVarianceSurface::minStrike() const { return 0.0; }
 
     Real BSplineVarianceSurface::maxStrike() const { return QL_MAX_REAL; }
@@ -325,7 +329,9 @@ namespace QuantLib {
                                                   Time sessionClose,
                                                   Time fitTime,
                                                   Real fitProgress,
-                                                  Real close) {
+                                                  Real close,
+                                                  const DayCounter& clock) {
+        QL_REQUIRE(!clock.empty(), "setIntradayClock: empty clock day counter");
         QL_REQUIRE(!now.empty() && !progress.empty(),
                    "setIntradayClock: now and progress handles must not be empty");
         QL_REQUIRE(session > referenceDate(), "setIntradayClock: session "
@@ -355,6 +361,7 @@ namespace QuantLib {
         fitTime_ = fitTime;
         sessionClose_ = sessionClose;
         fitProgress_ = fitProgress;
+        clockDc_ = clock;
         registerWith(now_);
         registerWith(progress_);
         notifyObservers();
