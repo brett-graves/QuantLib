@@ -13,6 +13,7 @@
 #include <ql/termstructures/yield/forwardstructure.hpp>
 #include <ql/termstructures/yield/impliedtermstructure.hpp>
 #include <ql/termstructures/yield/jumpedyieldtermstructure.hpp>
+#include <ql/termstructures/yield/intradayequityclock.hpp>
 #include <ql/termstructures/yield/rescaledtimetermstructure.hpp>
 #include <ql/termstructures/yield/interpolatedsimplezerocurve.hpp>
 #include <ql/termstructures/yield/multipleresetsswaphelper.hpp>

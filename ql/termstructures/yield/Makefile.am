@@ -16,6 +16,7 @@ this_include_HEADERS = \
     forwardstructure.hpp \
     impliedtermstructure.hpp \
     jumpedyieldtermstructure.hpp \
+    intradayequityclock.hpp \
     rescaledtimetermstructure.hpp \
     interpolatedsimplezerocurve.hpp \
     multipleresetsswaphelper.hpp \

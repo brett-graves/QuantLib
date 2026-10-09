@@ -164,6 +164,8 @@ namespace QuantLib {
         const Size p = degree_;
         times_.resize(N);
         slices_.resize(N);
+        dates_.resize(N);
+        atm_.resize(N);
         for (Size i = 0; i < N; ++i) {
             const Size src = order[i];
             const Time T = dayCounter().yearFraction(referenceDate(), dates[src]);
@@ -171,6 +173,7 @@ namespace QuantLib {
             QL_REQUIRE(i == 0 || T > times_[i - 1],
                        "duplicate or non-increasing pillar at " << dates[src]);
             times_[i] = T;
+            dates_[i] = dates[src];
 
             const std::vector<Real>& U = knots[src];
             const std::vector<Real>& c = coefficients[src];
@@ -207,6 +210,9 @@ namespace QuantLib {
             QL_REQUIRE(std::fabs(s.left[1]) <= leeBound && std::fabs(s.right[1]) <= leeBound,
                        "pillar " << dates[src] << ": wing slopes dw/dk " << s.left[1] << " and "
                                  << s.right[1] << " exceed Lee's bound " << leeBound);
+            atm_[i] = derivatives(i, 0.0)[0];
+            QL_REQUIRE(atm_[i] > 0.0, "pillar " << dates[src] << ": ATM total variance "
+                                                  << atm_[i] << " is not positive");
         }
     }
 
@@ -313,64 +319,135 @@ namespace QuantLib {
         return s;
     }
 
-    std::array<Real, 4> BSplineVarianceSurface::spend(std::array<Real, 4> s, Time t, Real u,
-                                                      const Bracket& b0, Real x) const {
-        if (u == 0.0)
-            return s;
-        if (t <= spendTime_) {
-            // The session's variance spreads over [0, t0]: (1 - u) of it remains.
-            for (Real& v : s)
-                v *= 1.0 - u;
-            return s;
+    void BSplineVarianceSurface::setIntradayClock(const Handle<Quote>& now,
+                                                  const Handle<Quote>& progress,
+                                                  const Date& session,
+                                                  Time sessionClose,
+                                                  Time fitTime,
+                                                  Real fitProgress,
+                                                  Real close) {
+        QL_REQUIRE(!now.empty() && !progress.empty(),
+                   "setIntradayClock: now and progress handles must not be empty");
+        QL_REQUIRE(session > referenceDate(), "setIntradayClock: session "
+                                                  << session << " is not after the reference date "
+                                                  << referenceDate());
+        QL_REQUIRE(fitProgress >= 0.0 && fitProgress < 1.0,
+                   "setIntradayClock: fit progress " << fitProgress << " outside [0, 1)");
+        QL_REQUIRE(fitTime < sessionClose, "setIntradayClock: fit time "
+                                               << fitTime << " is not before the session close "
+                                               << sessionClose);
+        // Pillars on fit-relative time: each date's close less the fit instant.
+        for (Size i = 0; i < dates_.size(); ++i) {
+            times_[i] = (dates_[i] - referenceDate()) / 365.0 + close - fitTime;
+            QL_REQUIRE(times_[i] > 0.0, "setIntradayClock: pillar " << dates_[i]
+                                                                    << " is not after the fit");
         }
-        // Past t0 the elapsed share of the session is gone; dw/dt is unchanged.
-        const std::array<Real, 4> s0 = state(b0, x);
-        for (Size j = 0; j < 3; ++j)
-            s[j] -= u * s0[j];
-        return s;
-    }
-
-    Real BSplineVarianceSurface::dayProgress() const {
-        if (dayProgress_.empty())
-            return 0.0;
-        const Real u = dayProgress_->value();
-        QL_REQUIRE(u >= 0.0 && u <= 1.0, "day progress " << u << " outside [0, 1]");
-        return u;
-    }
-
-    void BSplineVarianceSurface::setDayProgress(const Handle<Quote>& progress,
-                                                const Date& sessionClose) {
-        QL_REQUIRE(!progress.empty(), "day progress handle must not be empty");
-        const Time t0 = dayCounter().yearFraction(referenceDate(), sessionClose);
-        QL_REQUIRE(t0 > 0.0, "session close " << sessionClose
-                                              << " is not after the reference date "
-                                              << referenceDate());
-        if (!dayProgress_.empty())
-            unregisterWith(dayProgress_);
-        dayProgress_ = progress;
-        spendTime_ = t0;
-        registerWith(dayProgress_);
+        const Time r0 = sessionClose - fitTime;
+        QL_REQUIRE(times_.front() >= r0 - 1e-12, "setIntradayClock: pillar " << dates_.front()
+                                                     << " closes before the session "
+                                                     << session);
+        if (!now_.empty())
+            unregisterWith(now_);
+        if (!progress_.empty())
+            unregisterWith(progress_);
+        now_ = now;
+        progress_ = progress;
+        fitTime_ = fitTime;
+        sessionClose_ = sessionClose;
+        fitProgress_ = fitProgress;
+        registerWith(now_);
+        registerWith(progress_);
         notifyObservers();
     }
 
+    BSplineVarianceSurface::Clock BSplineVarianceSurface::clock() const {
+        const Real u = progress_->value();
+        QL_REQUIRE(u >= fitProgress_ && u <= 1.0, "day progress " << u << " outside ["
+                                                                  << fitProgress_ << ", 1]");
+        Clock c{};
+        c.rNow = now_->value() - fitTime_;
+        c.r0 = sessionClose_ - fitTime_;
+        c.v = (u - fitProgress_) / (1.0 - fitProgress_);
+        QL_REQUIRE(c.rNow >= -1e-12, "intraday clock: now is before the fit");
+        QL_REQUIRE(c.rNow < c.r0 || c.v == 1.0,
+                   "intraday clock: the session has closed but its variance is not spent (v = "
+                       << c.v << ")");
+        return c;
+    }
+
+    Time BSplineVarianceSurface::timeToSessionClose() const {
+        QL_REQUIRE(hasIntradayClock(), "timeToSessionClose: no intraday clock");
+        const Clock c = clock();
+        return c.r0 - c.rNow;
+    }
+
+    Real BSplineVarianceSurface::sessionVarianceLeft() const {
+        QL_REQUIRE(hasIntradayClock(), "sessionVarianceLeft: no intraday clock");
+        return 1.0 - clock().v;
+    }
+
+    std::array<Real, 4> BSplineVarianceSurface::remaining(Time t, Real x) const {
+        if (now_.empty())
+            return state(bracketAt(t), x);
+        const Clock c = clock();
+        const Real left = 1.0 - c.v;
+        const Time r = c.rNow + t;
+        // Today's close: the fitted surface there, of which 1 - v is left.
+        const std::array<Real, 4> today = state(bracketAt(c.r0), x);
+        const Size N = times_.size();
+        // First pillar after today's close.
+        Size first = 0;
+        while (first < N && times_[first] <= c.r0 + 1e-12)
+            ++first;
+        if (r <= c.r0 || first == N) {
+            // From now to today's close, linear in calendar time.
+            if (left == 0.0)
+                return {0.0, 0.0, 0.0, 0.0};
+            const Time span = c.r0 - c.rNow;
+            const Real f = (r - c.rNow) / span;
+            return {left * today[0] * f, left * today[1] * f, left * today[2] * f,
+                    left * today[0] / span};
+        }
+        // Later pillars: each smile scaled so its ATM variance loses v times
+        // today's (the front of the term structure slides off).
+        const Real atToday = state(bracketAt(c.r0), 0.0)[0];
+        auto scale = [&](Size i) { return 1.0 - c.v * atToday / atm_[i]; };
+        auto node = [&](Size i) {
+            const std::array<Real, 3> w = derivatives(i, x);
+            const Real s = scale(i);
+            return std::array<Real, 3>{s * w[0], s * w[1], s * w[2]};
+        };
+        std::array<Real, 3> lo, hi;
+        Time rLo, rHi;
+        Size hiIdx = first;
+        while (hiIdx + 1 < N && times_[hiIdx] < r)
+            ++hiIdx;
+        if (hiIdx == first) {
+            lo = {left * today[0], left * today[1], left * today[2]};
+            rLo = c.r0;
+        } else {
+            lo = node(hiIdx - 1);
+            rLo = times_[hiIdx - 1];
+        }
+        hi = node(hiIdx);
+        rHi = times_[hiIdx];
+        const Real a = (r - rLo) / (rHi - rLo);
+        std::array<Real, 4> out{};
+        for (Size j = 0; j < 3; ++j)
+            out[j] = (1.0 - a) * lo[j] + a * hi[j];
+        out[3] = (hi[0] - lo[0]) / (rHi - rLo);
+        return out;
+    }
+
     Real BSplineVarianceSurface::totalVariance(Real k, Time t) const {
-        const Real u = dayProgress();
-        const Bracket b = bracketAt(t);
-        if (u == 0.0)
-            return state(b, k)[0];
-        return spend(state(b, k), t, u, bracketAt(spendTime_), k)[0];
+        return remaining(t, k)[0];
     }
 
     Real BSplineVarianceSurface::localVariance(Real k, Time t, Real shift) const {
-        const Real x = k + shift;
-        const Real u = dayProgress();
-        if (u == 1.0 && t <= spendTime_)
-            return 0.0;
-        const Bracket b = bracketAt(t);
-        std::array<Real, 4> w = state(b, x);
-        if (u != 0.0)
-            w = spend(w, t, u, bracketAt(spendTime_), x);
+        const std::array<Real, 4> w = remaining(t, k + shift);
         const Real dwdt = w[3];
+        if (w[0] == 0.0 && dwdt == 0.0 && hasIntradayClock())
+            return 0.0;  // the session's variance is spent
         QL_REQUIRE(w[0] > 0.0, "non-positive total variance " << w[0] << " at (k=" << k
                                                               << ", t=" << t << ")");
         QL_REQUIRE(dwdt >= 0.0, "calendar arbitrage: dw/dt = " << dwdt << " at (k=" << k
@@ -384,20 +461,17 @@ namespace QuantLib {
 
     Size BSplineVarianceSurface::localVarianceSlice(Time t, const Real* k, Size n,
                                                     Real* out, Real shift) const {
-        const Real dp = dayProgress();
-        if (dp == 1.0 && t <= spendTime_) {
-            std::fill(out, out + n, 0.0);
-            return 0;
-        }
-        const Bracket b = bracketAt(t);
-        const Bracket b0 = dp == 0.0 ? b : bracketAt(spendTime_);
+        const bool clocked = hasIntradayClock();
+        const Bracket b = clocked ? Bracket{} : bracketAt(t);
         Size nIllegal = 0;
         for (Size j = 0; j < n; ++j) {
             const Real x = k[j] + shift;
-            std::array<Real, 4> w = state(b, x);
-            if (dp != 0.0)
-                w = spend(w, t, dp, b0, x);
+            const std::array<Real, 4> w = clocked ? remaining(t, x) : state(b, x);
             const Real dwdt = w[3];
+            if (clocked && w[0] == 0.0 && dwdt == 0.0) {
+                out[j] = 0.0;
+                continue;
+            }
             const Real u = 1.0 - 0.5 * k[j] * w[1] / w[0];
             const Real g = u * u - 0.25 * w[1] * w[1] * (1.0 / w[0] + 0.25) + 0.5 * w[2];
             if (!(w[0] > 0.0) || !(dwdt >= 0.0) || !(g > 0.0)) {

@@ -76,19 +76,11 @@ namespace QuantLib {
         with cash dividend drops.  Without cash dividends both modes are
         identical.
 
-        Day progress (setDayProgress()): with the reference date on the
-        last close and \f$ t_0 \f$ the time of the next session's close,
-        a quote \f$ u \in [0, 1] \f$ gives the share of that session's
-        variance already elapsed.  Every reader of the surface (Black vol,
-        totalVariance(), local variance) then sees the variance still to
-        come,
-        \f[ \tilde w(k, t) = w(k, t) - u\, w(k, \min(t, t_0)), \f]
-        so an option expiring at \f$ t_0 \f$ keeps \f$ (1-u) \f$ of its
-        variance and later expiries lose the elapsed share of the session.
-        \f$ \tilde w \f$ is free of calendar arbitrage whenever \f$ w \f$
-        is.  At \f$ u = 1 \f$ the variance up to \f$ t_0 \f$ is spent and
-        the local variance there is zero.  The pillar slices
-        (sliceTotalVariance()) stay as fitted.
+        Intraday clock (setIntradayClock()): the surface is read from now,
+        a quote, on the equity-option clock anchored on the previous
+        session (IntradayActual365Fixed), and the front of its term
+        structure slides off as the session's variance elapses.  See
+        setIntradayClock().
 
         \ingroup termstructures
     */
@@ -164,19 +156,39 @@ namespace QuantLib {
         //! Strike coordinate the slices are read at: k, or x in pure mode.
         Real coordinate(Time t, Real strike) const;
         bool pureDividendCoordinates() const { return pureDividend_; }
-        //! Elapsed share u of the session closing at spendTime() (0 when unset).
-        Real dayProgress() const;
-        //! Time of the session close the day progress spends toward (Null when unset).
-        Time spendTime() const { return spendTime_; }
+        //! True once setIntradayClock() has put the surface on an intraday clock.
+        bool hasIntradayClock() const { return !now_.empty(); }
+        //! Calendar time from now to the session's close (intraday clock only).
+        Time timeToSessionClose() const;
+        //! Share of the session's variance remaining after the fit's, 1 - v (intraday clock only).
+        Real sessionVarianceLeft() const;
         //@}
 
         //! \name Modifiers
         //@{
         void setPureDividendCoordinates(bool pure);
-        //! Spend the elapsed share \p progress of the session closing on \p sessionClose.
-        /*! \p sessionClose must be after the reference date; the quote is
-            observed, so moving it reprices every engine on this surface. */
-        void setDayProgress(const Handle<Quote>& progress, const Date& sessionClose);
+        //! Put the surface on the intraday equity-option clock.
+        /*! The reference date is the previous session's date and the
+            surface's day counter must be the same IntradayActual365Fixed
+            clock (on \p now) as the curves the engines discount on.  Pillar
+            dates stand for their closes, \p close years after midnight;
+            \p fitTime is the instant the slices were fitted at and
+            \p sessionClose the close of \p session, both in years from the
+            reference date's midnight.  \p progress is the share of the
+            session's variance elapsed now and \p fitProgress the share at
+            the fit.  Every reader then sees the variance from now on: today's
+            slice keeps 1 - v of its variance, v = (u - u_fit)/(1 - u_fit),
+            linearly in calendar time to the close, and each later pillar's
+            smile is scaled so that its ATM variance drops by v times
+            today's ATM variance (the front of the term structure slides
+            off).  Both quotes are observed. */
+        void setIntradayClock(const Handle<Quote>& now,
+                              const Handle<Quote>& progress,
+                              const Date& session,
+                              Time sessionClose,
+                              Time fitTime,
+                              Real fitProgress,
+                              Real close);
         //@}
 
         //! \name Visitability
@@ -208,9 +220,15 @@ namespace QuantLib {
         Bracket bracketAt(Time t) const;
         //! (w, dw/dk, d2w/dk2, dw/dt) of the fitted surface at coordinate x.
         std::array<Real, 4> state(const Bracket& b, Real x) const;
-        //! state() net of the day progress u at time t (b0 brackets spendTime_).
-        std::array<Real, 4> spend(std::array<Real, 4> s, Time t, Real u, const Bracket& b0,
-                                  Real x) const;
+        //! (w, dw/dk, d2w/dk2, dw/dt) at time t from now: state() on the
+        //! intraday clock's slide, or state() itself without a clock.
+        std::array<Real, 4> remaining(Time t, Real x) const;
+        //! The intraday clock's current state.
+        struct Clock {
+            Time rNow, r0;  // now and the session close, in fit-relative time
+            Real v;         // share of the fit's session variance elapsed since the fit
+        };
+        Clock clock() const;
 
         Natural degree_;
         std::vector<Time> times_;
@@ -220,8 +238,13 @@ namespace QuantLib {
         Handle<YieldTermStructure> dividendYield_;
         DividendSchedule dividends_;
         bool pureDividend_ = false;
-        Handle<Quote> dayProgress_;
-        Time spendTime_ = Null<Time>();
+        std::vector<Date> dates_;
+        std::vector<Real> atm_;  // pillar ATM total variance, w_i(0)
+        // Intraday clock (setIntradayClock); times are years from the
+        // reference date's midnight.
+        Handle<Quote> now_, progress_;
+        Time fitTime_ = 0.0, sessionClose_ = 0.0;
+        Real fitProgress_ = 0.0;
     };
 
     //! Analytic local vol of a BSplineVarianceSurface.
