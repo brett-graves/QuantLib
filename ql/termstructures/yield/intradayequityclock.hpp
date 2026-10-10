@@ -16,8 +16,9 @@
  of an American exercise).  Moving the quote moves every time on the clock.
 
  IntradayYieldTermStructure presents a base discount curve on that clock:
- discount(t) is the base curve's discount factor from now to now + t, the
- base curve's reference date being at or before today's midnight.
+ discount(t) is the base curve's discount factor from now to now + t; a base
+ curve starting after now (projected to today, read from last night's
+ close) continues backward at its first day's forward rate.
 */
 
 #ifndef quantlib_intraday_equity_clock_hpp
@@ -98,7 +99,8 @@ namespace QuantLib {
     /*! The reference date is the clock's anchor and the day counter the
         clock itself; discount(t) = base(n + t) / base(n), with n the
         current instant on the base curve's clock (its reference date at or
-        before the instant).  The base day counter must be Actual/N. */
+        before the instant, or continued backward at its first day's forward
+        rate over at most four days).  The base day counter must be Actual/N. */
     class IntradayYieldTermStructure : public YieldTermStructure {
       public:
         IntradayYieldTermStructure(Handle<YieldTermStructure> base,
@@ -124,24 +126,38 @@ namespace QuantLib {
             registerWith(now_);
         }
         Date maxDate() const override { return base_->maxDate(); }
-        //! The current instant on the base curve's clock.
+        //! The current instant on the base curve's clock (negative before its reference date).
         Time baseNow() const {
             const Time n =
                 (now_->value() - (base_->referenceDate() - referenceDate()) / 365.0) *
                 factor_;
-            QL_REQUIRE(n >= 0.0, "IntradayYieldTermStructure: now is before the base curve's "
-                                 "reference date "
-                                     << base_->referenceDate());
+            QL_REQUIRE(n >= -maxGap_ * factor_,
+                       "IntradayYieldTermStructure: now is more than " << maxGap_ * 365.0
+                           << " days before the base curve's reference date "
+                           << base_->referenceDate());
             return n;
         }
 
       protected:
         DiscountFactor discountImpl(Time t) const override {
             const Time n = baseNow();
-            return base_->discount(n + t * factor_, true) / base_->discount(n, true);
+            return baseDiscount(n + t * factor_) / baseDiscount(n);
         }
 
       private:
+        /* The base curve's discount factor at base time x; before its
+           reference date (a curve projected to today read from last
+           night's close) it continues backward at its first day's forward
+           rate, the constant-forward assumption of the projection itself. */
+        DiscountFactor baseDiscount(Time x) const {
+            if (x >= 0.0)
+                return base_->discount(x, true);
+            const Time day = factor_ / 365.0;
+            const Rate f0 = -std::log(base_->discount(day, true)) / day;
+            return std::exp(-f0 * x);
+        }
+        static constexpr Time maxGap_ = 4.0 / 365.0;  // a long weekend
+
         Handle<YieldTermStructure> base_;
         Handle<Quote> now_;
         Real factor_;
