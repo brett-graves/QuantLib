@@ -30,4 +30,5 @@
 #include <ql/termstructures/volatility/equityfx/puredividend.hpp>
 #include <ql/termstructures/volatility/equityfx/pwlpdfblackvolsurface.hpp>
 #include <ql/termstructures/volatility/equityfx/piecewiseblackvariancesurface.hpp>
+#include <ql/termstructures/volatility/equityfx/splinesmilevolsurface.hpp>
 

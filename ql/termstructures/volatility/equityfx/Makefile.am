@@ -32,7 +32,8 @@ this_include_HEADERS = \
     parametricvoltermstructure.hpp \
     puredividend.hpp \
     piecewiseblackvariancesurface.hpp \
-    scaledvoltermstructure.hpp
+    scaledvoltermstructure.hpp \
+    splinesmilevolsurface.hpp
 
 cpp_files = \
     andreasenhugelocalvoladapter.cpp \
@@ -56,7 +57,8 @@ cpp_files = \
     parametriclocalvolsurface.cpp \
     parametricvoltermstructure.cpp \
     puredividend.cpp \
-    piecewiseblackvariancesurface.cpp
+    piecewiseblackvariancesurface.cpp \
+    splinesmilevolsurface.cpp
 
 if UNITY_BUILD
 
