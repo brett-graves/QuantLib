@@ -74,7 +74,8 @@ namespace QuantLib {
             Real illegalLocalVolOverwrite = -Null<Real>(),
             std::vector<Time> stoppingTimes = {},
             Real coreStdDevs = Null<Real>(),
-            Real coreFraction = 0.5);
+            Real coreFraction = 0.5,
+            Size dampingSteps = 0);
 
         //! registers options to be solved together with their expiry
         void declare(const Date& maturity,
@@ -110,6 +111,7 @@ namespace QuantLib {
         Real spotConcentrationDensity_, illegalLocalVolOverwrite_;
         std::vector<Time> stoppingTimes_;
         Real coreStdDevs_, coreFraction_;
+        Size dampingSteps_;
         mutable std::map<GroupKey, Group> groups_;
         mutable Size solveCount_ = 0;
         mutable Size illegalLocalVolCount_ = 0;

@@ -43,7 +43,9 @@
     two nodes from either end; stripMesher() makes it one.
 
     Supported: local vol, cash or fractional dividends under the spot
-    model, American or European exercise, no damping steps.  The exact
+    model, American or European exercise, implicit-Euler damping steps
+    (as FdmBackwardSolver: the first dampingSteps of tGrid + dampingSteps
+    equal steps).  The exact
     cell average needs plain-vanilla payoffs.
 */
 
@@ -94,7 +96,8 @@ namespace QuantLib {
             Size tGrid,
             Real illegalLocalVolOverwrite = -Null<Real>(),
             std::vector<Time> stoppingTimes = {},
-            bool exactCellAverage = false);
+            bool exactCellAverage = false,
+            Size dampingSteps = 0);
 
         FdmBlackScholesStripResults solve() const;
 
@@ -146,6 +149,7 @@ namespace QuantLib {
         Real illegalLocalVolOverwrite_;
         std::vector<Time> stoppingTimes_;
         bool exactCellAverage_;
+        Size dampingSteps_;
     };
 
 }

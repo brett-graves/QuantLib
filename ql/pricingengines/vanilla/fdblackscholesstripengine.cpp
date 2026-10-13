@@ -36,14 +36,16 @@ namespace QuantLib {
         Real illegalLocalVolOverwrite,
         std::vector<Time> stoppingTimes,
         Real coreStdDevs,
-        Real coreFraction)
+        Real coreFraction,
+        Size dampingSteps)
     : process_(std::move(process)), dividends_(std::move(dividends)),
       xGrid_(xGrid), tGrid_(tGrid), minStepsPerYear_(minStepsPerYear),
       mesherScaleFactor_(mesherScaleFactor), mesherEps_(mesherEps),
       spotConcentrationDensity_(spotConcentrationDensity),
       illegalLocalVolOverwrite_(illegalLocalVolOverwrite),
       stoppingTimes_(std::move(stoppingTimes)),
-      coreStdDevs_(coreStdDevs), coreFraction_(coreFraction) {
+      coreStdDevs_(coreStdDevs), coreFraction_(coreFraction),
+      dampingSteps_(dampingSteps) {
         QL_REQUIRE(process_, "null process");
         registerWith(process_);
     }
@@ -98,7 +100,7 @@ namespace QuantLib {
         const FdmBlackScholesStripSolver solver(
             process_, key.first, payoffs, key.second == Exercise::American,
             dividends_, mesher, tGrid, illegalLocalVolOverwrite_, stoppingTimes_,
-            true);
+            true, dampingSteps_);
         group.results = solver.solve();
         group.valid = true;
         ++solveCount_;
