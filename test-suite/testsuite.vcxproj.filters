@@ -516,6 +516,9 @@
     <ClCompile Include="fittedbonddiscountcurve.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fomcstepcurve.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="floatfloatswap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

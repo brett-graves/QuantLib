@@ -2220,6 +2220,9 @@
     <ClInclude Include="ql\termstructures\yield\fittedbonddiscountcurve.hpp">
       <Filter>termstructures\yield</Filter>
     </ClInclude>
+    <ClInclude Include="ql\termstructures\yield\fomcstepcurve.hpp">
+      <Filter>termstructures\yield</Filter>
+    </ClInclude>
     <ClInclude Include="ql\termstructures\yield\flatforward.hpp">
       <Filter>termstructures\yield</Filter>
     </ClInclude>
@@ -5826,6 +5829,9 @@
       <Filter>termstructures\yield</Filter>
     </ClCompile>
     <ClCompile Include="ql\termstructures\yield\fittedbonddiscountcurve.cpp">
+      <Filter>termstructures\yield</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\yield\fomcstepcurve.cpp">
       <Filter>termstructures\yield</Filter>
     </ClCompile>
     <ClCompile Include="ql\termstructures\yield\flatforward.cpp">

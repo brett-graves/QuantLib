@@ -75,6 +75,7 @@ QL_TEST_SRCS = \
 	fdcev.cpp \
 	fdsabr.cpp \
 	fittedbonddiscountcurve.cpp \
+	fomcstepcurve.cpp \
 	floatfloatswap.cpp \
 	forwardoption.cpp \
 	forwardrateagreement.cpp \

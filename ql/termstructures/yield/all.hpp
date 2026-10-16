@@ -7,6 +7,7 @@
 #include <ql/termstructures/yield/derivedtermstructure.hpp>
 #include <ql/termstructures/yield/discountcurve.hpp>
 #include <ql/termstructures/yield/fittedbonddiscountcurve.hpp>
+#include <ql/termstructures/yield/fomcstepcurve.hpp>
 #include <ql/termstructures/yield/flatforward.hpp>
 #include <ql/termstructures/yield/forwardcurve.hpp>
 #include <ql/termstructures/yield/forwardspreadedtermstructure.hpp>

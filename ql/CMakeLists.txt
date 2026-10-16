@@ -927,6 +927,7 @@ set(QL_SOURCES
     termstructures/voltermstructure.cpp
     termstructures/yield/bondhelpers.cpp
     termstructures/yield/fittedbonddiscountcurve.cpp
+    termstructures/yield/fomcstepcurve.cpp
     termstructures/yield/flatforward.cpp
     termstructures/yield/forwardstructure.cpp
     termstructures/yield/multipleresetsswaphelper.cpp
@@ -2270,6 +2271,7 @@ set(QL_HEADERS
     termstructures/yield/derivedtermstructure.hpp
     termstructures/yield/discountcurve.hpp
     termstructures/yield/fittedbonddiscountcurve.hpp
+    termstructures/yield/fomcstepcurve.hpp
     termstructures/yield/flatforward.hpp
     termstructures/yield/forwardcurve.hpp
     termstructures/yield/forwardspreadedtermstructure.hpp
