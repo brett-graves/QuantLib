@@ -61,6 +61,29 @@ namespace QuantLib {
             return n;
         }
 
+        //! first derivatives of the cubic basis at x, from the degree-2 basis
+        std::vector<Real> cubicFirstDerivatives(const std::vector<Real>& t, Real x) {
+            std::vector<Real> q = bsplineBasis(t, 2, x);  // size m - 3
+            Size nSpline = t.size() - 4;
+            std::vector<Real> d1(nSpline, 0.0);
+            for (Size j = 0; j < nSpline; ++j)
+                d1[j] = 3.0 * (safeRatio(q[j], t[j + 3] - t[j]) -
+                               safeRatio(q[j + 1], t[j + 4] - t[j + 1]));
+            return d1;
+        }
+
+        //! square-root factor R (R'R = G) of a Gram matrix, regularised by trace
+        Matrix gramFactor(Matrix gram) {
+            Real trace = 0.0;
+            for (Size a = 0; a < gram.rows(); ++a)
+                trace += gram[a][a];
+            if (trace == 0.0)  // empty region (e.g. no tension past the curve's end)
+                return Matrix(gram.rows(), gram.columns(), 0.0);
+            for (Size a = 0; a < gram.rows(); ++a)
+                gram[a][a] += 1e-12 * trace;
+            return transpose(CholeskyDecomposition(gram));
+        }
+
         //! second derivatives of the cubic basis at x, from the degree-1 basis
         std::vector<Real> cubicSecondDerivatives(const std::vector<Real>& t, Real x) {
             std::vector<Real> h = bsplineBasis(t, 1, x);  // size m - 2
@@ -195,6 +218,10 @@ namespace QuantLib {
         QL_REQUIRE(cfg.turnPriorMeanBp.size() == 3 && cfg.turnPriorSdBp.size() == 3,
                    "FomcStepParametrisation: three turn priors (ME, QE, YE) expected");
 
+        QL_REQUIRE(static_cast<Real>(Date::maxDate() - reference_) > cfg.curveYears * 365.25,
+                   "FomcStepParametrisation: a " << cfg.curveYears << "y curve from " << reference_
+                                                 << " runs past QuantLib's last date "
+                                                 << Date::maxDate());
         Date end = reference_ + static_cast<Integer>(cfg.curveYears * 365.25);
         for (Date d = reference_; d <= end; ++d)
             days_.push_back(d);
@@ -350,12 +377,21 @@ namespace QuantLib {
                 for (Size b = 0; b < nSpline; ++b)
                     gram[a][b] += d2[a] * d2[b] * dt;
         }
-        Real trace = 0.0;
-        for (Size a = 0; a < nSpline; ++a)
-            trace += gram[a][a];
-        for (Size a = 0; a < nSpline; ++a)
-            gram[a][a] += 1e-12 * trace;
-        Matrix curvatureFactor = transpose(CholeskyDecomposition(gram));
+        Matrix curvatureFactor = gramFactor(gram);
+
+        // int S'^2 over the tension region of the tail.
+        Real ta = std::max(ts, cfg.tailTensionStartYears);
+        Matrix gram1(nSpline, nSpline, 0.0);
+        if (cfg.tailTensionLambda > 0.0 && ta < qb) {
+            Real dt1 = (qb - ta) / (nq - 1);
+            for (Size q = 0; q < nq; ++q) {
+                std::vector<Real> d1 = cubicFirstDerivatives(t, ta + q * dt1);
+                for (Size a = 0; a < nSpline; ++a)
+                    for (Size b = 0; b < nSpline; ++b)
+                        gram1[a][b] += d1[a] * d1[b] * dt1;
+            }
+        }
+        tensionFactor_ = gramFactor(gram1);
 
         // Curve nodes: every calendar day whose rate row differs from the day
         // before inside the step region (log-linear discounts are then exact),
@@ -380,7 +416,7 @@ namespace QuantLib {
         Size n = size();
         Size nMoves = moves_.second - moves_.first;
         Size nKnots = (spread_.second - spread_.first) + (withEffr_ ? 0 : 1);
-        Size rows = (nMoves - 1) + (nKnots - 1) + (nKnots - 2) + 3 + nSpline;
+        Size rows = (nMoves - 1) + (nKnots - 1) + (nKnots - 2) + 3 + 2 * nSpline + 1;
         penalty_ = Matrix(rows, n, 0.0);
         penaltyOffset_ = Array(rows, 0.0);
         Size r = 0;
@@ -424,6 +460,22 @@ namespace QuantLib {
             for (Size j = 1; j < nSpline; ++j)
                 penalty_[r][spline_.first + j - 1] += s * R[a][j];
         }
+        Real st = std::sqrt(cfg.tailTensionLambda);
+        for (Size a = 0; a < nSpline; ++a, ++r) {
+            Real c0 = st * tensionFactor_[a][0];
+            penalty_[r][0] += c0;
+            for (Size k = moves_.first; k < moves_.second; ++k)
+                penalty_[r][k] += c0;
+            penalty_[r][sLast] += c0;
+            for (Size j = 1; j < nSpline; ++j)
+                penalty_[r][spline_.first + j - 1] += st * tensionFactor_[a][j];
+        }
+        // The clamped spline equals its last coefficient at the curve's end:
+        // pin that forward to the ultimate forward.
+        QL_REQUIRE(nSpline > 1, "FomcStepParametrisation: the tail spline needs at least two coefficients");
+        penalty_[r][spline_.second - 1] = 1.0 / cfg.ultimateSigmaBp;
+        penaltyOffset_[r] = -cfg.ultimateForwardBp / cfg.ultimateSigmaBp;
+        ++r;
         QL_ENSURE(r == rows, "FomcStepParametrisation: penalty rows " << r << " != " << rows);
     }
 
