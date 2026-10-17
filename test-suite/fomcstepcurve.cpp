@@ -48,6 +48,7 @@ namespace {
         c.horizonYears = 0.75;
         c.splineKnotsYears = {2, 4, 7};
         c.curveYears = 10;
+        c.ultimateForwardBp = 420.0;  // the truth's flat tail: no penalty at the truth
         return c;
     }
 
@@ -220,6 +221,25 @@ BOOST_AUTO_TEST_CASE(testEffrLegIsThePolicyPathAndSofrAddsTheSpread) {
     QL_CHECK_CLOSE((effr[c] - effr[b]) * 1e4, 25.0, 1e-9);
     QL_CHECK_CLOSE((sofr[d] - effr[d]) * 1e4, 12.0, 1e-9);
     BOOST_CHECK(p->names()[p->spreadRange().first] == "spread:2026-10-14");
+}
+
+BOOST_AUTO_TEST_CASE(testTailIsPinnedToTheUltimateForward) {
+    BOOST_TEST_MESSAGE("Testing that the far tail bends to the ultimate forward...");
+    Settings::instance().evaluationDate() = ref;
+    FomcStepCurveConfig cfg = smallConfig();
+    cfg.curveYears = 60;
+    cfg.splineKnotsYears = {2, 4, 7, 20, 40};
+    cfg.ultimateForwardBp = 200.0;
+    auto p = ext::make_shared<FomcStepParametrisation>(ref, decisions(), UnitedStates(UnitedStates::SOFR), cfg);
+    Targets t = targets();
+    FomcStepFit fit(p, t.helpers, t.names, t.bp, t.hw, t.effr, t.synthetic, Actual365Fixed());
+    quoteAt(fit, truth(*p), t);  // quotes from a flat 420bp tail out to 9y
+    fit.fit(p->initialGuess(380.0));
+    std::vector<Real> r = p->rates(fit.parameters());
+    // Instruments still fit; the forward at the far end is the ultimate forward.
+    for (Size i = 0; i < t.helpers.size(); ++i)
+        BOOST_CHECK_SMALL(fit.residualsBp()[i], 0.3);
+    QL_CHECK_CLOSE(r.back() * 1e4, 200.0, 1.0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

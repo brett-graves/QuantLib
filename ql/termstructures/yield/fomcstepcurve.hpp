@@ -55,7 +55,7 @@ namespace QuantLib {
     */
     struct FomcStepCurveConfig {
         Real horizonYears = 3.0;
-        std::vector<Real> splineKnotsYears = {4, 5, 6, 7, 8.5, 10, 12, 15, 20, 25, 30, 40, 50};
+        std::vector<Real> splineKnotsYears = {4, 5, 6, 7, 8.5, 10, 12, 15, 20, 25, 30, 40, 50, 75, 100};
         Real pathSigmaBp = 25.0;
         std::vector<Real> turnPriorMeanBp = {2.5, 4.5, 5.0};
         std::vector<Real> turnPriorSdBp = {3.0, 4.0, 6.0};
@@ -68,7 +68,19 @@ namespace QuantLib {
         Real spreadStepBp = 1.0;
         Real spreadCurveBp = 0.5;
         Real curvatureLambda = 1e-2;
-        Integer curveYears = 52;
+        //! the curve ends curveYears out, where the forward is pinned to
+        //! ultimateForwardBp with sd ultimateSigmaBp: past the last instrument
+        //! the curvature penalty alone leaves the tail unidentified, so it
+        //! bends smoothly from the longest swap to this ultimate forward
+        //! 150y: QuantLib dates end in 2199, so 200y from today does not fit
+        Integer curveYears = 150;
+        Real ultimateForwardBp = 200.0;
+        Real ultimateSigmaBp = 1.0;
+        //! tension on the forward's slope beyond tailTensionStartYears:
+        //! lambda * int S'^2 there, so the tail approaches the ultimate forward
+        //! monotonically instead of overshooting a curvature-only fit
+        Real tailTensionStartYears = 50.0;
+        Real tailTensionLambda = 1.0;
         Integer tailNodeDays = 30;
         Size maxOuterSteps = 8;
         Real nonlinearTolBp = 1e-3;
@@ -86,7 +98,8 @@ namespace QuantLib {
         reference date, the first of each month and the switch date), turns are
         month/quarter/year-end bumps shared by kind, and S is a clamped cubic
         B-spline in the forward tied to the last step level at the switch, the
-        last meeting's effective date. With an EFFR leg the policy path is
+        last meeting's effective date, and pinned at the curve's end to the
+        configured ultimate forward. With an EFFR leg the policy path is
         EFFR and today's spread is free; without one the spread is measured
         from today (first knot fixed at zero).
 
@@ -145,7 +158,7 @@ namespace QuantLib {
         std::vector<std::string> names_;
         std::pair<Size, Size> moves_, spread_, turns_, spline_;
         std::vector<Row> sofrRows_, effrRows_;
-        Matrix penalty_;
+        Matrix penalty_, tensionFactor_;
         Array penaltyOffset_;
     };
 
