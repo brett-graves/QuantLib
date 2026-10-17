@@ -10,6 +10,7 @@ this_include_HEADERS = \
     derivedtermstructure.hpp \
     discountcurve.hpp \
     fittedbonddiscountcurve.hpp \
+    fomcstepcurve.hpp \
     flatforward.hpp \
     forwardcurve.hpp \
     forwardspreadedtermstructure.hpp \
@@ -39,6 +40,7 @@ this_include_HEADERS = \
 cpp_files = \
     bondhelpers.cpp \
     fittedbonddiscountcurve.cpp \
+    fomcstepcurve.cpp \
     flatforward.cpp \
     forwardstructure.cpp \
     multipleresetsswaphelper.cpp \
