@@ -53,6 +53,7 @@ QL_TEST_SRCS = \
 	dates.cpp \
 	daycounters.cpp \
 	defaultprobabilitycurves.cpp \
+	deliveryoptionlineskernel.cpp \
 	digitalcoupon.cpp \
 	digitaloption.cpp \
 	distributions.cpp \

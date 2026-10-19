@@ -6,12 +6,14 @@ this_include_HEADERS = \
     all.hpp \
     binomialconvertibleengine.hpp \
     bondfunctions.hpp \
+    deliveryoptionlineskernel.hpp \
     discountingbondengine.hpp \
     discretizedconvertible.hpp \
 	riskybondengine.hpp
 
 cpp_files = \
     bondfunctions.cpp \
+    deliveryoptionlineskernel.cpp \
     discountingbondengine.cpp \
     discretizedconvertible.cpp \
 	riskybondengine.cpp

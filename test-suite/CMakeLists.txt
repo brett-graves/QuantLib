@@ -74,6 +74,7 @@ set(QL_TEST_SOURCES
     fdmlinearop.cpp
     fdsabr.cpp
     fittedbonddiscountcurve.cpp
+    deliveryoptionlineskernel.cpp
     fomcstepcurve.cpp
     floatfloatswap.cpp
     forwardoption.cpp

@@ -2781,6 +2781,9 @@
     <ClInclude Include="ql\pricingengines\bond\bondfunctions.hpp">
       <Filter>pricingengines\bond</Filter>
     </ClInclude>
+    <ClInclude Include="ql\pricingengines\bond\deliveryoptionlineskernel.hpp">
+      <Filter>pricingengines\bond</Filter>
+    </ClInclude>
     <ClInclude Include="ql\pricingengines\bond\discountingbondengine.hpp">
       <Filter>pricingengines\bond</Filter>
     </ClInclude>
@@ -6183,6 +6186,9 @@
       <Filter>pricingengines\lookback</Filter>
     </ClCompile>
     <ClCompile Include="ql\pricingengines\bond\bondfunctions.cpp">
+      <Filter>pricingengines\bond</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\pricingengines\bond\deliveryoptionlineskernel.cpp">
       <Filter>pricingengines\bond</Filter>
     </ClCompile>
     <ClCompile Include="ql\pricingengines\bond\discountingbondengine.cpp">

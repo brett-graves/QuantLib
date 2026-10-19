@@ -1541,6 +1541,7 @@
     <ClInclude Include="ql\pricingengines\bond\all.hpp" />
     <ClInclude Include="ql\pricingengines\bond\binomialconvertibleengine.hpp" />
     <ClInclude Include="ql\pricingengines\bond\bondfunctions.hpp" />
+    <ClInclude Include="ql\pricingengines\bond\deliveryoptionlineskernel.hpp" />
     <ClInclude Include="ql\pricingengines\bond\discountingbondengine.hpp" />
     <ClInclude Include="ql\pricingengines\bond\discretizedconvertible.hpp" />
     <ClInclude Include="ql\pricingengines\bond\riskybondengine.hpp" />
@@ -2664,6 +2665,7 @@
     <ClCompile Include="ql\pricingengines\blackformula.cpp" />
     <ClCompile Include="ql\pricingengines\blackscholescalculator.cpp" />
     <ClCompile Include="ql\pricingengines\bond\bondfunctions.cpp" />
+    <ClCompile Include="ql\pricingengines\bond\deliveryoptionlineskernel.cpp" />
     <ClCompile Include="ql\pricingengines\bond\discountingbondengine.cpp" />
     <ClCompile Include="ql\pricingengines\bond\discretizedconvertible.cpp" />
     <ClCompile Include="ql\pricingengines\bond\riskybondengine.cpp" />
