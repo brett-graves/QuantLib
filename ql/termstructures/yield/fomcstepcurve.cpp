@@ -787,6 +787,17 @@ namespace QuantLib {
         cost_ = 0.5 * c;
     }
 
+    void FomcStepFit::setHalfWidthsBp(const std::vector<Real>& halfWidthsBp) {
+        QL_REQUIRE(halfWidthsBp.size() == helpers_.size(),
+                   "FomcStepFit: " << halfWidthsBp.size() << " half-widths for "
+                                   << helpers_.size() << " targets");
+        for (Size i = 0; i < halfWidthsBp.size(); ++i)
+            QL_REQUIRE(halfWidthsBp[i] > 0.0, "FomcStepFit: half-width of target "
+                                                  << names_[i] << " must be positive, got "
+                                                  << halfWidthsBp[i]);
+        halfWidthsBp_ = halfWidthsBp;
+    }
+
     std::vector<std::string> FomcStepFit::outsideBand() const {
         std::vector<std::string> out;
         for (Size i = 0; i < residualBp_.size(); ++i)
