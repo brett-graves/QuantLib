@@ -204,6 +204,36 @@ BOOST_AUTO_TEST_CASE(testQuoteSensitivityMatchesARefit) {
     BOOST_CHECK_SMALL(refit - dxdq[i][j], 0.02);
 }
 
+BOOST_AUTO_TEST_CASE(testAWiderBandLetsTheCurveLeaveThatQuote) {
+    BOOST_TEST_MESSAGE("Testing that widening a target's band lowers its weight...");
+    Settings::instance().evaluationDate() = ref;
+    auto p = param();
+    Targets t = targets();
+    FomcStepFit fit = makeFit(p, t);
+    quoteAt(fit, truth(*p), t);
+    Size j = 1;  // November average: pins the first meeting
+    t.quotes[j]->setValue(t.quotes[j]->value() - 0.03);  // 3bp off the others
+    fit.fit(p->initialGuess(380.0), "quadratic");
+    Real tight = std::fabs(fit.residualsBp()[j]);
+    Array base = fit.parameters();
+
+    std::vector<Real> hw = t.hw;
+    hw[j] *= 10.0;
+    fit.setHalfWidthsBp(hw);
+    BOOST_CHECK_EQUAL(fit.halfWidthsBp()[j], hw[j]);
+    fit.fit(base, "quadratic", false, true);
+    Real wide = std::fabs(fit.residualsBp()[j]);
+    BOOST_CHECK(wide > tight + 0.5);
+
+    fit.setHalfWidthsBp(t.hw);  // back to the original bands: the original fit
+    fit.fit(fit.parameters(), "quadratic", false, true);
+    BOOST_CHECK_SMALL(std::fabs(fit.residualsBp()[j]) - tight, 1e-4);  // solver tolerance
+
+    BOOST_CHECK_THROW(fit.setHalfWidthsBp(std::vector<Real>(hw.size() - 1, 0.25)), Error);
+    hw[0] = 0.0;
+    BOOST_CHECK_THROW(fit.setHalfWidthsBp(hw), Error);
+}
+
 BOOST_AUTO_TEST_CASE(testEffrLegIsThePolicyPathAndSofrAddsTheSpread) {
     BOOST_TEST_MESSAGE("Testing the EFFR leg against the SOFR rates...");
     Settings::instance().evaluationDate() = ref;

@@ -199,6 +199,12 @@ namespace QuantLib {
                  bool reuseJacobian = false);
         //! show the curves at parameters x (no refit)
         void show(const Array& x);
+        /*! replace the targets' uncertainty bands (bp of rate, one per
+            target, each positive), e.g. a live bid/ask; the next fit()
+            weights and reports risk with them. The quote Jacobian does not
+            depend on the bands, so a reused Jacobian stays valid. */
+        void setHalfWidthsBp(const std::vector<Real>& halfWidthsBp);
+        const std::vector<Real>& halfWidthsBp() const { return halfWidthsBp_; }
 
         const ext::shared_ptr<FomcStepParametrisation>& parametrisation() const { return param_; }
         ext::shared_ptr<YieldTermStructure> sofrCurve() const { return sofr_; }
