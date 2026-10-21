@@ -4,6 +4,7 @@
  Copyright (C) 2008 Andreas Gaida
  Copyright (C) 2008 Ralph Schreyer
  Copyright (C) 2008, 2009 Klaus Spanderen
+ Copyright (C) 2026 Brett Graves
 
  This file is part of QuantLib, a free-software/open-source library
  for financial quantitative analysts and developers - http://quantlib.org/
@@ -46,6 +47,10 @@ namespace QuantLib {
 
         const std::vector<Time>& dividendTimes() const;
         const std::vector<Date>& dividendDates() const;
+        /*! Null for a FractionalDividend without a nominal; the
+            amount applied on the grid is Dividend::amount(underlying)
+            evaluated at each grid value of the underlying.
+        */
         const std::vector<Real>& dividends() const;
         
       private:
@@ -54,6 +59,7 @@ namespace QuantLib {
         std::vector<Time> dividendTimes_;
         std::vector<Date> dividendDates_;
         std::vector<Real> dividends_;
+        DividendSchedule schedule_;
         const ext::shared_ptr<FdmMesher> mesher_;
         const Size equityDirection_;
     };

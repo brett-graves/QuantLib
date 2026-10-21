@@ -2,6 +2,7 @@
 
 /*
  Copyright (C) 2009 Klaus Spanderen
+ Copyright (C) 2026 Brett Graves
 
  This file is part of QuantLib, a free-software/open-source library
  for financial quantitative analysts and developers - http://quantlib.org/
@@ -48,18 +49,21 @@ namespace QuantLib {
         const Real S = process->x0();
         QL_REQUIRE(S > 0.0, "negative or null underlying given");
 
-        std::vector<std::pair<Time, Real> > intermediateSteps;
+        // a null dividend marks an intermediate step without a dividend
+        std::vector<std::pair<Time, ext::shared_ptr<Dividend> > > intermediateSteps;
         for (const auto& i : dividendSchedule) {
             const Time t = process->time(i->date());
             if (t <= maturity && t >= 0.0)
-                intermediateSteps.emplace_back(process->time(i->date()), i->amount());
+                intermediateSteps.emplace_back(t, i);
         }
 
         const Size intermediateTimeSteps = std::max<Size>(2, Size(24.0*maturity));
         for (Size i=0; i < intermediateTimeSteps; ++i)
-            intermediateSteps.emplace_back((i + 1) * (maturity / intermediateTimeSteps), 0.0);
+            intermediateSteps.emplace_back((i + 1) * (maturity / intermediateTimeSteps),
+                                           ext::shared_ptr<Dividend>());
 
-        std::sort(intermediateSteps.begin(), intermediateSteps.end());
+        std::stable_sort(intermediateSteps.begin(), intermediateSteps.end(),
+                         [](const auto& a, const auto& b) { return a.first < b.first; });
 
         const Handle<YieldTermStructure> rTS = process->riskFreeRate();
 
@@ -78,14 +82,16 @@ namespace QuantLib {
 
         for (auto& intermediateStep : intermediateSteps) {
             const Time divTime = intermediateStep.first;
-            const Real divAmount = intermediateStep.second;
+            const ext::shared_ptr<Dividend>& dividend = intermediateStep.second;
 
             fwd = fwd / rTS->discount(divTime) * rTS->discount(lastDivTime)
                       * qTS->discount(divTime) / qTS->discount(lastDivTime);
 
             mi  = std::min(mi, fwd); ma = std::max(ma, fwd);
 
-            fwd-= divAmount;
+            // a fractional dividend pays a fraction of the forward at the ex-date
+            if (dividend != nullptr)
+                fwd -= dividend->amount(fwd);
 
             mi  = std::min(mi, fwd); ma = std::max(ma, fwd);
 

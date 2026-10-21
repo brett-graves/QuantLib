@@ -4,6 +4,7 @@
  Copyright (C) 2008 Andreas Gaida
  Copyright (C) 2008, 2009 Ralph Schreyer
  Copyright (C) 2008 Klaus Spanderen
+ Copyright (C) 2026 Brett Graves
 
  This file is part of QuantLib, a free-software/open-source library
  for financial quantitative analysts and developers - http://quantlib.org/
@@ -20,6 +21,7 @@
 */
 
 #include <ql/time/daycounter.hpp>
+#include <ql/cashflows/dividend.hpp>
 #include <ql/math/interpolations/linearinterpolation.hpp>
 #include <ql/methods/finitedifferences/operators/fdmlinearoplayout.hpp>
 #include <ql/methods/finitedifferences/utilities/fdmdividendhandler.hpp>
@@ -34,6 +36,7 @@ namespace QuantLib {
         const DayCounter& dayCounter,
         Size equityDirection)
     : x_(mesher->layout()->dim()[equityDirection]),
+      schedule_(schedule),
       mesher_(mesher),
       equityDirection_(equityDirection) {
 
@@ -41,7 +44,12 @@ namespace QuantLib {
         dividendDates_.reserve(schedule.size());
         dividendTimes_.reserve(schedule.size());
         for (const auto& iter : schedule) {
-            dividends_.push_back(iter->amount());
+            // a fractional dividend without a nominal has no fixed amount;
+            // its drop is computed from the grid values in applyTo
+            auto fractional = ext::dynamic_pointer_cast<FractionalDividend>(iter);
+            dividends_.push_back(fractional != nullptr && fractional->nominal() == Null<Real>()
+                                     ? Null<Real>()
+                                     : iter->amount());
             dividendDates_.push_back(iter->date());
             dividendTimes_.push_back(dayCounter.yearFraction(referenceDate, iter->date()));
         }
@@ -71,12 +79,18 @@ namespace QuantLib {
         auto iter = std::find(dividendTimes_.begin(), dividendTimes_.end(), t);
 
         if (iter != dividendTimes_.end()) {
-            const Real dividend = dividends_[iter - dividendTimes_.begin()];
+            const ext::shared_ptr<Dividend>& dividend = schedule_[iter - dividendTimes_.begin()];
+
+            // the ex-dividend spot for each grid value; a fractional
+            // dividend pays a fraction of the spot at the ex-date
+            Array exDividend(x_.size());
+            for (Size k=0; k<x_.size(); ++k)
+                exDividend[k] = std::max(x_[0], x_[k] - dividend->amount(x_[k]));
 
             if (mesher_->layout()->dim().size() == 1) {
                 LinearInterpolation interp(x_.begin(), x_.end(), aCopy.begin());
                 for (Size k=0; k<x_.size(); ++k) {
-                    a[k] = interp(std::max(x_[0], x_[k]-dividend), true);
+                    a[k] = interp(exDividend[k], true);
                 }
             }
             else {
@@ -95,8 +109,7 @@ namespace QuantLib {
                                                        tmp.begin());
                             for (Size k=0; k<x_.size(); ++k) {
                                 Size index = j*ySpacing + k*xSpacing;
-                                a[index] = interp(
-                                        std::max(x_[0], x_[k]-dividend), true);
+                                a[index] = interp(exDividend[k], true);
                             }
                         }
                     }
