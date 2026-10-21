@@ -26,7 +26,6 @@
 #include <ql/termstructures/volatility/equityfx/localvoltermstructure.hpp>
 #include <ql/termstructures/volatility/equityfx/mixedspotlocalvoltermstructure.hpp>
 #include <ql/termstructures/volatility/equityfx/mixedspotvoltermstructure.hpp>
-#include <ql/termstructures/volatility/equityfx/mynewvolsurface.hpp>
 #include <ql/termstructures/volatility/equityfx/noexceptlocalvolsurface.hpp>
 #include <ql/termstructures/volatility/equityfx/parametriclocalvolsurface.hpp>
 #include <ql/termstructures/volatility/equityfx/parametricvoltermstructure.hpp>

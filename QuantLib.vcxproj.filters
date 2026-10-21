@@ -2154,9 +2154,6 @@
     <ClInclude Include="ql\termstructures\volatility\equityfx\mixedspotvoltermstructure.hpp">
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClInclude>
-    <ClInclude Include="ql\termstructures\volatility\equityfx\mynewvolsurface.hpp">
-      <Filter>termstructures\volatility\equityfx</Filter>
-    </ClInclude>
     <ClInclude Include="ql\termstructures\volatility\optionlet\all.hpp">
       <Filter>termstructures\volatility\optionlet</Filter>
     </ClInclude>

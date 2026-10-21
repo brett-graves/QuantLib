@@ -2184,7 +2184,6 @@ ql/termstructures/volatility/equityfx/mixedspotlocalvoltermstructure.cpp
 ql/termstructures/volatility/equityfx/mixedspotlocalvoltermstructure.hpp
 ql/termstructures/volatility/equityfx/mixedspotvoltermstructure.cpp
 ql/termstructures/volatility/equityfx/mixedspotvoltermstructure.hpp
-ql/termstructures/volatility/equityfx/mynewvolsurface.hpp
 ql/termstructures/volatility/equityfx/noexceptlocalvolsurface.hpp
 ql/termstructures/volatility/equityfx/parametriclocalvolsurface.cpp
 ql/termstructures/volatility/equityfx/parametriclocalvolsurface.hpp

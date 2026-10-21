@@ -29,7 +29,6 @@ this_include_HEADERS = \
     localvoltermstructure.hpp \
     mixedspotlocalvoltermstructure.hpp \
     mixedspotvoltermstructure.hpp \
-    mynewvolsurface.hpp \
     noexceptlocalvolsurface.hpp \
     parametriclocalvolsurface.hpp \
     parametricvoltermstructure.hpp \
