@@ -37,9 +37,8 @@ namespace QuantLib {
         Handle<YieldTermStructure> yts =
             iborIdx->forwardingTermStructure(); // might be empty, then use model curve
 
-        Date valueDate = iborIdx->valueDate(fixing);
-        Date endDate = iborIdx->fixingCalendar().advance(
-            valueDate, iborIdx->tenor(), iborIdx->businessDayConvention(), iborIdx->endOfMonth());
+        auto valueDate = iborIdx->valueDate(fixing);
+        auto endDate = iborIdx->maturityDate(valueDate);
         Real dcf = iborIdx->dayCounter().yearFraction(valueDate, endDate);
 
         // Forward rate uses ONLY the rate factor (forecast, not discount)

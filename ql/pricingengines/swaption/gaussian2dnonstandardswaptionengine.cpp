@@ -18,6 +18,7 @@
 */
 
 #include <ql/pricingengines/swaption/gaussian2dnonstandardswaptionengine.hpp>
+#include <ql/cashflows/overnightindexedcoupon.hpp>
 #include <ql/math/interpolations/cubicinterpolation.hpp>
 #include <ql/rebatedexercise.hpp>
 #include <ql/utilities/null.hpp>
@@ -25,6 +26,32 @@
 using std::exp;
 
 namespace QuantLib {
+
+    namespace {
+        // Floating-rate estimate for coupon i as seen from expiryDate in rate
+        // state yRate, as in Gaussian1dNonstandardSwaptionEngine: a
+        // compounded-in-arrears overnight coupon telescopes to a zerobond
+        // ratio over its own accrual period, rather than projecting the
+        // index's one-day tenor over the whole accrual.
+        Real nonstandardFloatingRate(const ext::shared_ptr<Gaussian2dModel>& model,
+                                     const NonstandardSwaption::arguments& arguments,
+                                     Size i, const Date& expiryDate, Real yRate) {
+            auto overnightCoupon = ext::dynamic_pointer_cast<OvernightIndexedCoupon>(
+                arguments.swap->floatingLeg()[i]);
+            if (overnightCoupon != nullptr) {
+                Handle<YieldTermStructure> forwardingCurve =
+                    arguments.swap->iborIndex()->forwardingTermStructure();
+                return (model->forecastZerobond(overnightCoupon->accrualStartDate(),
+                                               expiryDate, yRate, forwardingCurve) /
+                            model->forecastZerobond(overnightCoupon->accrualEndDate(),
+                                                   expiryDate, yRate, forwardingCurve) -
+                        1.0) /
+                       overnightCoupon->accrualPeriod();
+            }
+            return model->forwardRate(arguments.floatingFixingDates[i], expiryDate, yRate,
+                                     arguments.swap->iborIndex());
+        }
+    }
 
     // ================================================================
     // SplineIntegrator: precomputes LU factorization of the natural
@@ -312,9 +339,8 @@ namespace QuantLib {
         for (Size i = floatingIdx; i < arguments_.floatingResetDates.size(); i++) {
             Real amount;
             if (!arguments_.floatingIsRedemptionFlow[i]) {
-                Real fwdRate = model_->forwardRate(
-                    arguments_.floatingFixingDates[i], expiry, yRate,
-                    arguments_.swap->iborIndex());
+                Real fwdRate =
+                    nonstandardFloatingRate(*model_, arguments_, i, expiry, yRate);
 
                 Real couponRate = arguments_.floatingGearings[i] * fwdRate +
                                   arguments_.floatingSpreads[i];
@@ -516,9 +542,8 @@ namespace QuantLib {
                         Size fi = floatingIdx + f;
                         Real amount;
                         if (!arguments_.floatingIsRedemptionFlow[fi]) {
-                            Real fwdRate = model_->forwardRate(
-                                arguments_.floatingFixingDates[fi],
-                                expiry0, z[k], arguments_.swap->iborIndex());
+                            Real fwdRate = nonstandardFloatingRate(
+                                *model_, arguments_, fi, expiry0, z[k]);
                             Real couponRate =
                                 arguments_.floatingGearings[fi] * fwdRate +
                                 arguments_.floatingSpreads[fi];
