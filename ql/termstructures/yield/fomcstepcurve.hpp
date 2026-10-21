@@ -82,6 +82,13 @@ namespace QuantLib {
         Real tailTensionStartYears = 50.0;
         Real tailTensionLambda = 1.0;
         Integer tailNodeDays = 30;
+        //! fixed jumps (bp) added to the SOFR overnight rate on these business
+        //! days, e.g. period-end turns measured on the fixings: constants, not
+        //! parameters, so no quote moves them. Only days from the reference date
+        //! to the switch date count (a rolled curve drops past ones), as for the
+        //! turns; those must be business days.
+        std::vector<Date> jumpDates;
+        std::vector<Real> jumpBp;
         Size maxOuterSteps = 8;
         Real nonlinearTolBp = 1e-3;
     };
@@ -89,14 +96,15 @@ namespace QuantLib {
     //! Overnight rates linear in the parameters: r = A x / 1e4 on business days
     /*! The SOFR overnight rate on business day b is
 
-            policy(b) + s(b) + turn(b)       before the switch date
+            policy(b) + s(b) + turn(b) + j(b)   before the switch date
             S(t_b)                           from it,
 
         where policy(b) = L + sum_k D_k 1[b >= e_k] steps on each FOMC
         effective date e_k (the business day after the decision) inside the
         horizon, s is the funding spread (piecewise linear on knots at the
         reference date, the first of each month and the switch date), turns are
-        month/quarter/year-end bumps shared by kind, and S is a clamped cubic
+        month/quarter/year-end bumps shared by kind, j the configured fixed
+        jumps (SOFR only), and S is a clamped cubic
         B-spline in the forward tied to the last step level at the switch, the
         last meeting's effective date, and pinned at the curve's end to the
         configured ultimate forward. With an EFFR leg the policy path is
@@ -158,6 +166,7 @@ namespace QuantLib {
         std::vector<std::string> names_;
         std::pair<Size, Size> moves_, spread_, turns_, spline_;
         std::vector<Row> sofrRows_, effrRows_;
+        std::vector<Real> sofrJump_;  // fixed jump per business day, decimal
         Matrix penalty_, tensionFactor_;
         Array penaltyOffset_;
     };

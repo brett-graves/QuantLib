@@ -366,6 +366,21 @@ namespace QuantLib {
         sofrRows_ = toRows(sofr);
         effrRows_ = toRows(effr);
 
+        // Fixed jumps: constants on the SOFR path inside the step region.
+        QL_REQUIRE(cfg.jumpDates.size() == cfg.jumpBp.size(),
+                   "FomcStepCurveConfig: " << cfg.jumpDates.size() << " jump dates for "
+                                           << cfg.jumpBp.size() << " jump sizes");
+        sofrJump_.assign(bdays_.size(), 0.0);
+        for (Size j = 0; j < cfg.jumpDates.size(); ++j) {
+            const Date& d = cfg.jumpDates[j];
+            if (d < reference_ || d >= switch_)
+                continue;  // already past (a rolled curve), or beyond the step region
+            auto it = std::lower_bound(bdays_.begin(), bdays_.end(), d);
+            QL_REQUIRE(it != bdays_.end() && *it == d,
+                       "FomcStepCurveConfig: jump date " << d << " is not a business day of the curve");
+            sofrJump_[it - bdays_.begin()] += cfg.jumpBp[j] / 1e4;
+        }
+
         // int S''^2 on the spline as its square-root factor R (R'R = Gram).
         const Size nq = 4000;
         Real qa = ts, qb = static_cast<Real>(cfg.curveYears) - 1e-9;
@@ -399,7 +414,8 @@ namespace QuantLib {
         Size iSwitch = static_cast<Size>(switch_ - reference_);
         std::set<Size> nodes = {0};
         for (Size i = 1; i <= iSwitch && i < days_.size(); ++i)
-            if (sofrRows_[calToB_[i]] != sofrRows_[calToB_[i - 1]])
+            if (sofrRows_[calToB_[i]] != sofrRows_[calToB_[i - 1]] ||
+                sofrJump_[calToB_[i]] != sofrJump_[calToB_[i - 1]])
                 nodes.insert(i);
         for (Size i = iSwitch; i < days_.size(); i += cfg.tailNodeDays)
             nodes.insert(i);
@@ -494,7 +510,11 @@ namespace QuantLib {
     }
 
     std::vector<Real> FomcStepParametrisation::rates(const Array& x, bool effr) const {
-        return rowRates(effr ? effrRows_ : sofrRows_, x);
+        std::vector<Real> r = rowRates(effr ? effrRows_ : sofrRows_, x);
+        if (!effr)
+            for (Size i = 0; i < r.size(); ++i)
+                r[i] += sofrJump_[i];
+        return r;
     }
 
     std::vector<DiscountFactor> FomcStepParametrisation::nodeDiscounts(const Array& x,

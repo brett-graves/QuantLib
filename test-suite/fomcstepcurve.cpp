@@ -234,6 +234,40 @@ BOOST_AUTO_TEST_CASE(testAWiderBandLetsTheCurveLeaveThatQuote) {
     BOOST_CHECK_THROW(fit.setHalfWidthsBp(hw), Error);
 }
 
+BOOST_AUTO_TEST_CASE(testFixedJumpsShiftTheSofrRatesOnly) {
+    BOOST_TEST_MESSAGE("Testing fixed jumps on the SOFR overnight path...");
+    Settings::instance().evaluationDate() = ref;
+    FomcStepCurveConfig cfg = smallConfig();
+    auto plain = ext::make_shared<FomcStepParametrisation>(ref, decisions(), UnitedStates(UnitedStates::SOFR), cfg, true);
+    const std::vector<Date>& b = plain->businessDays();
+    Date monthEnd = UnitedStates(UnitedStates::SOFR).endOfMonth(Date(30, November, 2026));
+    Size iMe = bdayIndex(*plain, monthEnd);
+    cfg.jumpDates = {monthEnd, b[iMe + 1]};
+    cfg.jumpBp = {4.0, 2.5};
+    auto jumped = ext::make_shared<FomcStepParametrisation>(ref, decisions(), UnitedStates(UnitedStates::SOFR), cfg, true);
+    Array x = truth(*plain);
+    std::vector<Real> r0 = plain->rates(x, false), r1 = jumped->rates(x, false);
+    for (Size i = 0; i < r0.size(); ++i) {
+        Real expected = i == iMe ? 4e-4 : i == iMe + 1 ? 2.5e-4 : 0.0;
+        BOOST_CHECK_SMALL(r1[i] - r0[i] - expected, 1e-15);
+    }
+    std::vector<Real> e0 = plain->rates(x, true), e1 = jumped->rates(x, true);
+    for (Size i = 0; i < e0.size(); ++i)
+        BOOST_CHECK_SMALL(e1[i] - e0[i], 1e-15);
+    const std::vector<Date>& nodes = jumped->nodeDates();
+    BOOST_CHECK(std::find(nodes.begin(), nodes.end(), monthEnd) != nodes.end());
+
+    cfg.jumpDates = {Date(1, October, 2026), monthEnd};  // a past date is dropped, as on a rolled curve
+    cfg.jumpBp = {9.0, 4.0};
+    FomcStepParametrisation rolled(ref, decisions(), UnitedStates(UnitedStates::SOFR), cfg, true);
+    BOOST_CHECK_SMALL(rolled.rates(x, false)[iMe] - r0[iMe] - 4e-4, 1e-15);
+
+    cfg.jumpDates = {Date(28, November, 2026)};  // a Saturday
+    cfg.jumpBp = {1.0};
+    BOOST_CHECK_THROW(FomcStepParametrisation(ref, decisions(), UnitedStates(UnitedStates::SOFR), cfg, true),
+                      Error);
+}
+
 BOOST_AUTO_TEST_CASE(testEffrLegIsThePolicyPathAndSofrAddsTheSpread) {
     BOOST_TEST_MESSAGE("Testing the EFFR leg against the SOFR rates...");
     Settings::instance().evaluationDate() = ref;
