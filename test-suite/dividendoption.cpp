@@ -2,6 +2,7 @@
 
 /*
  Copyright (C) 2004, 2005, 2007 StatPro Italia srl
+ Copyright (C) 2026 Brett Graves
 
  This file is part of QuantLib, a free-software/open-source library
  for financial quantitative analysts and developers - http://quantlib.org/
@@ -1465,6 +1466,92 @@ BOOST_AUTO_TEST_CASE(testAmericanOptionsWithEscrowedDividends) {
 }
 
 
+BOOST_AUTO_TEST_CASE(testFdFractionalDividends) {
+    BOOST_TEST_MESSAGE("Testing finite-differences options with fractional dividends...");
+
+    const DayCounter dc = Actual365Fixed();
+    const Date today = Date(26, October, 2025);
+    Settings::instance().evaluationDate() = today;
+
+    const Date maturityDate = today + Period(1, Years);
+    const Date dividendDate = today + Period(5, Months);
+    const Rate dividendRate = 0.04;
+
+    const Real s = 100.0;
+    const ext::shared_ptr<SimpleQuote> spot = ext::make_shared<SimpleQuote>(s);
+    const Handle<YieldTermStructure> qTS(flatRate(today, 0.01, dc));
+    const Handle<YieldTermStructure> rTS(flatRate(today, 0.03, dc));
+    const Handle<BlackVolTermStructure> volTS(flatVol(today, 0.25, dc));
+
+    const auto process = ext::make_shared<BlackScholesMertonProcess>(
+        Handle<Quote>(spot), qTS, rTS, volTS);
+
+    // with a proportional dividend the ex-dividend spot stays lognormal,
+    // so a European option is worth the Black-Scholes value at s*(1-rate)
+    const auto exDividendProcess = ext::make_shared<BlackScholesMertonProcess>(
+        Handle<Quote>(ext::make_shared<SimpleQuote>(s * (1.0 - dividendRate))),
+        qTS, rTS, volTS);
+
+    const DividendSchedule dividends = {
+        ext::make_shared<FractionalDividend>(dividendRate, dividendDate)};
+    // the nominal is the dividend's notional at inception; the drop on
+    // the grid is still a fraction of the spot at the ex-dividend date
+    const DividendSchedule dividendsWithNominal = {
+        ext::make_shared<FractionalDividend>(dividendRate, 2.0 * s, dividendDate)};
+
+    const auto fdEngine = ext::make_shared<FdBlackScholesVanillaEngine>(
+        process, dividends, 200, 400);
+    const auto fdEngineWithNominal = ext::make_shared<FdBlackScholesVanillaEngine>(
+        process, dividendsWithNominal, 200, 400);
+    const auto analyticEngine = ext::make_shared<AnalyticEuropeanEngine>(exDividendProcess);
+
+    // the grid error on a 400x200 grid is about 1e-3 (5e-5 relative)
+    const Real tol = 2e-3;
+
+    for (const Option::Type optionType: {Option::Call, Option::Put})
+        for (const Real strike: {80.0, 100.0, 120.0}) {
+            const auto payoff = ext::make_shared<PlainVanillaPayoff>(optionType, strike);
+
+            VanillaOption european(payoff, ext::make_shared<EuropeanExercise>(maturityDate));
+            european.setPricingEngine(analyticEngine);
+            const Real expected = european.NPV();
+
+            european.setPricingEngine(fdEngine);
+            const Real calculated = european.NPV();
+
+            if (std::fabs(calculated - expected) > tol)
+                BOOST_ERROR("failed to reproduce European option value with a "
+                            "fractional dividend"
+                            << "\n    type:       " << optionType
+                            << "\n    strike:     " << strike
+                            << "\n    expected:   " << expected
+                            << "\n    calculated: " << calculated
+                            << "\n    tolerance:  " << tol);
+
+            european.setPricingEngine(fdEngineWithNominal);
+            const Real calculatedWithNominal = european.NPV();
+
+            if (std::fabs(calculatedWithNominal - calculated) > 1e-12)
+                BOOST_ERROR("fractional dividend with nominal does not scale "
+                            "with the spot at the ex-dividend date"
+                            << "\n    type:              " << optionType
+                            << "\n    strike:            " << strike
+                            << "\n    without nominal:   " << calculated
+                            << "\n    with nominal:      " << calculatedWithNominal);
+
+            VanillaOption american(payoff, ext::make_shared<AmericanExercise>(today, maturityDate));
+            american.setPricingEngine(fdEngine);
+            const Real americanNPV = american.NPV();
+
+            if (americanNPV < calculated - tol)
+                BOOST_ERROR("American option with a fractional dividend "
+                            "below its European counterpart"
+                            << "\n    type:       " << optionType
+                            << "\n    strike:     " << strike
+                            << "\n    American:   " << americanNPV
+                            << "\n    European:   " << calculated);
+        }
+}
 
 BOOST_AUTO_TEST_CASE(testVNBinomialNoDividendsMatchesLR) {
     BOOST_TEST_MESSAGE(
