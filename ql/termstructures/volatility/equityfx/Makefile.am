@@ -14,8 +14,11 @@ this_include_HEADERS = \
     blackvoltermstructure.hpp \
     bsplinevariancesurface.hpp \
     blackvoltimeextrapolation.hpp \
+    dualwingessvi.hpp \
     essvihelpers.hpp \
+    essvilocalvolsurface.hpp \
     essvivoltermstructure.hpp \
+    eventvollocalvoltermstructure.hpp \
     fixedlocalvolsurface.hpp \
     gridmodellocalvolsurface.hpp \
     hestonblackvolsurface.hpp \
@@ -32,7 +35,11 @@ this_include_HEADERS = \
     parametricvoltermstructure.hpp \
     puredividend.hpp \
     piecewiseblackvariancesurface.hpp \
-    scaledvoltermstructure.hpp
+    pwlpdfblackvolsurface.hpp \
+    pwlpdflocalvolsurface.hpp \
+    pwlpdfsurface.hpp \
+    scaledvoltermstructure.hpp \
+    splitrhoessvi.hpp
 
 cpp_files = \
     andreasenhugelocalvoladapter.cpp \
@@ -44,8 +51,11 @@ cpp_files = \
     blackvoltermstructure.cpp \
     bsplinevariancesurface.cpp \
     blackvoltimeextrapolation.cpp \
+    dualwingessvi.cpp \
     essvihelpers.cpp \
+    essvilocalvolsurface.cpp \
     essvivoltermstructure.cpp \
+    eventvollocalvoltermstructure.cpp \
     fixedlocalvolsurface.cpp \
     gridmodellocalvolsurface.cpp \
     hestonblackvolsurface.cpp \
@@ -56,7 +66,11 @@ cpp_files = \
     parametriclocalvolsurface.cpp \
     parametricvoltermstructure.cpp \
     puredividend.cpp \
-    piecewiseblackvariancesurface.cpp
+    piecewiseblackvariancesurface.cpp \
+    pwlpdfblackvolsurface.cpp \
+    pwlpdflocalvolsurface.cpp \
+    pwlpdfsurface.cpp \
+    splitrhoessvi.cpp
 
 if UNITY_BUILD
 

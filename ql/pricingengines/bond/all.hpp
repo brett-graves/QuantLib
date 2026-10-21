@@ -4,7 +4,7 @@
 #include <ql/pricingengines/bond/binomialconvertibleengine.hpp>
 #include <ql/pricingengines/bond/bondfunctions.hpp>
 #include <ql/pricingengines/bond/discountingbondengine.hpp>
-#include <ql/pricingengines/bond/g2copulabondoptionengine.hpp>
 #include <ql/pricingengines/bond/discretizedconvertible.hpp>
+#include <ql/pricingengines/bond/g2copulabondoptionengine.hpp>
 #include <ql/pricingengines/bond/riskybondengine.hpp>
 

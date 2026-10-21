@@ -8,6 +8,7 @@ this_include_HEADERS = \
     discountingconstnotionalcrosscurrencyswapengine.hpp \
     discountingswapengine.hpp \
     discretizedswap.hpp \
+    gaussian1dcallablerangeaccrualengine.hpp \
     treeswapengine.hpp
 
 cpp_files = \
@@ -15,6 +16,7 @@ cpp_files = \
     discountingconstnotionalcrosscurrencyswapengine.cpp \
     discountingswapengine.cpp \
     discretizedswap.cpp \
+    gaussian1dcallablerangeaccrualengine.cpp \
     treeswapengine.cpp
 
 if UNITY_BUILD

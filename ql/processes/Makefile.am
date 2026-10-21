@@ -5,6 +5,7 @@ this_includedir=${includedir}/${subdir}
 this_include_HEADERS = \
     all.hpp \
     batesprocess.hpp \
+    blackscholeshwborrowprocess.hpp \
     blackscholesprocess.hpp \
     coxingersollrossprocess.hpp \
     endeulerdiscretization.hpp \
@@ -28,6 +29,7 @@ this_include_HEADERS = \
 
 cpp_files = \
     batesprocess.cpp \
+    blackscholeshwborrowprocess.cpp \
     blackscholesprocess.cpp \
     coxingersollrossprocess.cpp \
     endeulerdiscretization.cpp \

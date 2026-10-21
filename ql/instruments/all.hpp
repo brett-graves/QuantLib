@@ -11,6 +11,7 @@
 #include <ql/instruments/bond.hpp>
 #include <ql/instruments/bondforward.hpp>
 #include <ql/instruments/callabilityschedule.hpp>
+#include <ql/instruments/callablerangeaccrualswap.hpp>
 #include <ql/instruments/capfloor.hpp>
 #include <ql/instruments/claim.hpp>
 #include <ql/instruments/cliquetoption.hpp>
@@ -63,6 +64,7 @@
 #include <ql/instruments/quantobarrieroption.hpp>
 #include <ql/instruments/quantoforwardvanillaoption.hpp>
 #include <ql/instruments/quantovanillaoption.hpp>
+#include <ql/instruments/rangeaccrualswap.hpp>
 #include <ql/instruments/simplechooseroption.hpp>
 #include <ql/instruments/simplifynotificationgraph.hpp>
 #include <ql/instruments/softbarrieroption.hpp>

@@ -45,6 +45,8 @@ QL_TEST_SRCS = \
 	creditdefaultswap.cpp \
 	constnotionalcrosscurrencybasisswap.cpp \
 	constnotionalcrosscurrencyfixedvsfloatingswap.cpp \
+	gsr2.cpp \
+	mcamericanhwborrowengine.cpp \
 	mtmcrosscurrencybasisswap.cpp \
 	constnotionalcrosscurrencyswap.cpp \
 	crosscurrencyratehelpers.cpp \

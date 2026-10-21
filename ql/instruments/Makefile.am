@@ -16,6 +16,7 @@ this_include_HEADERS = \
     bond.hpp \
     bondforward.hpp \
     callabilityschedule.hpp \
+    callablerangeaccrualswap.hpp \
     capfloor.hpp \
     claim.hpp \
     cliquetoption.hpp \
@@ -68,6 +69,7 @@ this_include_HEADERS = \
     quantobarrieroption.hpp \
     quantoforwardvanillaoption.hpp \
     quantovanillaoption.hpp \
+    rangeaccrualswap.hpp \
     simplechooseroption.hpp \
     simplifynotificationgraph.hpp \
     softbarrieroption.hpp \
@@ -97,6 +99,7 @@ cpp_files = \
     bmaswap.cpp \
     bond.cpp \
     bondforward.cpp \
+    callablerangeaccrualswap.cpp \
     capfloor.cpp \
     claim.cpp \
     cliquetoption.cpp \
@@ -147,6 +150,7 @@ cpp_files = \
     quantobarrieroption.cpp \
     quantoforwardvanillaoption.cpp \
     quantovanillaoption.cpp \
+    rangeaccrualswap.cpp \
     simplechooseroption.cpp \
     simplifynotificationgraph.cpp \
     softbarrieroption.cpp \

@@ -729,6 +729,7 @@
     <ClCompile Include="gaussianquadratures.cpp" />
     <ClCompile Include="gjrgarchmodel.cpp" />
     <ClCompile Include="gsr.cpp" />
+    <ClCompile Include="gsr2.cpp" />
     <ClCompile Include="hestonmodel.cpp" />
     <ClCompile Include="hestonslvmodel.cpp" />
     <ClCompile Include="himalayaoption.cpp" />
@@ -762,6 +763,7 @@
     <ClCompile Include="marketmodel_smmcaplethomocalibration.cpp" />
     <ClCompile Include="markovfunctional.cpp" />
     <ClCompile Include="matrices.cpp" />
+    <ClCompile Include="mcamericanhwborrowengine.cpp" />
     <ClCompile Include="mclongstaffschwartzengine.cpp" />
     <ClCompile Include="mersennetwister.cpp" />
     <ClCompile Include="money.cpp" />
@@ -781,6 +783,7 @@
     <ClCompile Include="overnightindexedfundingratehelper.cpp" />
     <ClCompile Include="overnightindexedswap.cpp" />
     <ClCompile Include="pagodaoption.cpp" />
+    <ClCompile Include="parametricvoltermstructure.cpp" />
     <ClCompile Include="partialtimebarrieroption.cpp" />
     <ClCompile Include="pathgenerator.cpp" />
     <ClCompile Include="period.cpp" />

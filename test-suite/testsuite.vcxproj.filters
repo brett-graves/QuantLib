@@ -203,6 +203,9 @@
     <ClCompile Include="gsr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="gsr2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="hestonmodel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -290,6 +293,9 @@
     <ClCompile Include="matrices.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mcamericanhwborrowengine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="mclongstaffschwartzengine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -333,6 +339,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="pagodaoption.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="parametricvoltermstructure.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="partialtimebarrieroption.cpp">

@@ -84,14 +84,15 @@ namespace QuantLib {
         for (auto& intermediateStep : intermediateSteps) {
             const Time divTime = intermediateStep.first;
             const auto& div = intermediateStep.second;
-            const Real divAmount = div ? div->amount(fwd) : 0.0;
 
             fwd = fwd / rTS->discount(divTime) * rTS->discount(lastDivTime)
                       * qTS->discount(divTime) / qTS->discount(lastDivTime);
 
             mi  = std::min(mi, fwd); ma = std::max(ma, fwd);
 
-            fwd-= divAmount;
+            // a fractional dividend pays a fraction of the forward at the ex-date
+            if (div)
+                fwd -= div->amount(fwd);
 
             mi  = std::min(mi, fwd); ma = std::max(ma, fwd);
 

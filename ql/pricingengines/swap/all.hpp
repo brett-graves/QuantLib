@@ -5,5 +5,6 @@
 #include <ql/pricingengines/swap/discountingconstnotionalcrosscurrencyswapengine.hpp>
 #include <ql/pricingengines/swap/discountingswapengine.hpp>
 #include <ql/pricingengines/swap/discretizedswap.hpp>
+#include <ql/pricingengines/swap/gaussian1dcallablerangeaccrualengine.hpp>
 #include <ql/pricingengines/swap/treeswapengine.hpp>
 

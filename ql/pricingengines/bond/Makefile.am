@@ -8,12 +8,14 @@ this_include_HEADERS = \
     bondfunctions.hpp \
     discountingbondengine.hpp \
     discretizedconvertible.hpp \
+    g2copulabondoptionengine.hpp \
 	riskybondengine.hpp
 
 cpp_files = \
     bondfunctions.cpp \
     discountingbondengine.cpp \
     discretizedconvertible.cpp \
+    g2copulabondoptionengine.cpp \
 	riskybondengine.cpp
 
 if UNITY_BUILD

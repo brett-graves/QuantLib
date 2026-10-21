@@ -810,6 +810,9 @@
     <ClInclude Include="ql\instruments\callabilityschedule.hpp">
       <Filter>instruments</Filter>
     </ClInclude>
+    <ClInclude Include="ql\instruments\callablerangeaccrualswap.hpp">
+      <Filter>instruments</Filter>
+    </ClInclude>
     <ClInclude Include="ql\instruments\capfloor.hpp">
       <Filter>instruments</Filter>
     </ClInclude>
@@ -928,6 +931,9 @@
       <Filter>instruments</Filter>
     </ClInclude>
     <ClInclude Include="ql\instruments\quantovanillaoption.hpp">
+      <Filter>instruments</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\instruments\rangeaccrualswap.hpp">
       <Filter>instruments</Filter>
     </ClInclude>
     <ClInclude Include="ql\instruments\simplechooseroption.hpp">
@@ -1941,6 +1947,12 @@
     <ClInclude Include="ql\models\shortrate\twofactormodels\g2.hpp">
       <Filter>models\shortrate\twofactorsmodels</Filter>
     </ClInclude>
+    <ClInclude Include="ql\models\shortrate\twofactormodels\gaussian2dmodel.hpp">
+      <Filter>models\shortrate\twofactorsmodels</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\models\shortrate\twofactormodels\gsr2.hpp">
+      <Filter>models\shortrate\twofactorsmodels</Filter>
+    </ClInclude>
     <ClInclude Include="ql\models\volatility\all.hpp">
       <Filter>models\volatility</Filter>
     </ClInclude>
@@ -2103,6 +2115,24 @@
     <ClInclude Include="ql\termstructures\volatility\equityfx\blackvoltimeextrapolation.hpp">
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\bsplinevariancesurface.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\dualwingessvi.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\essvihelpers.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\essvilocalvolsurface.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\essvivoltermstructure.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\eventvollocalvoltermstructure.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
     <ClInclude Include="ql\termstructures\volatility\equityfx\impliedvoltermstructure.hpp">
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClInclude>
@@ -2116,6 +2146,15 @@
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClInclude>
     <ClInclude Include="ql\termstructures\volatility\equityfx\localvoltermstructure.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\mixedspotlocalvoltermstructure.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\mixedspotvoltermstructure.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\mynewvolsurface.hpp">
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClInclude>
     <ClInclude Include="ql\termstructures\volatility\optionlet\all.hpp">
@@ -2238,6 +2277,9 @@
     <ClInclude Include="ql\termstructures\yield\interpolatedsimplezerocurve.hpp">
       <Filter>termstructures\yield</Filter>
     </ClInclude>
+    <ClInclude Include="ql\termstructures\yield\jumpedyieldtermstructure.hpp">
+      <Filter>termstructures\yield</Filter>
+    </ClInclude>
     <ClInclude Include="ql\termstructures\yield\multipleresetsswaphelper.hpp">
       <Filter>termstructures\yield</Filter>
     </ClInclude>
@@ -2263,6 +2305,9 @@
       <Filter>termstructures\yield</Filter>
     </ClInclude>
     <ClInclude Include="ql\termstructures\yield\ratehelpers.hpp">
+      <Filter>termstructures\yield</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\yield\rescaledtimetermstructure.hpp">
       <Filter>termstructures\yield</Filter>
     </ClInclude>
     <ClInclude Include="ql\termstructures\yield\spreadbootstraptraits.hpp">
@@ -2401,6 +2446,9 @@
       <Filter>processes</Filter>
     </ClInclude>
     <ClInclude Include="ql\processes\batesprocess.hpp">
+      <Filter>processes</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\processes\blackscholeshwborrowprocess.hpp">
       <Filter>processes</Filter>
     </ClInclude>
     <ClInclude Include="ql\processes\blackscholesprocess.hpp">
@@ -2682,6 +2730,9 @@
     <ClInclude Include="ql\pricingengines\vanilla\mcamericanengine.hpp">
       <Filter>pricingengines\vanilla</Filter>
     </ClInclude>
+    <ClInclude Include="ql\pricingengines\vanilla\mcamericanhwborrowengine.hpp">
+      <Filter>pricingengines\vanilla</Filter>
+    </ClInclude>
     <ClInclude Include="ql\pricingengines\vanilla\mcdigitalengine.hpp">
       <Filter>pricingengines\vanilla</Filter>
     </ClInclude>
@@ -2784,6 +2835,9 @@
     <ClInclude Include="ql\pricingengines\bond\discretizedconvertible.hpp">
       <Filter>pricingengines\bond</Filter>
     </ClInclude>
+    <ClInclude Include="ql\pricingengines\bond\g2copulabondoptionengine.hpp">
+      <Filter>pricingengines\bond</Filter>
+    </ClInclude>
     <ClInclude Include="ql\pricingengines\swap\all.hpp">
       <Filter>pricingengines\swap</Filter>
     </ClInclude>
@@ -2797,6 +2851,9 @@
       <Filter>pricingengines\swap</Filter>
     </ClInclude>
     <ClInclude Include="ql\pricingengines\swap\discretizedswap.hpp">
+      <Filter>pricingengines\swap</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\pricingengines\swap\gaussian1dcallablerangeaccrualengine.hpp">
       <Filter>pricingengines\swap</Filter>
     </ClInclude>
     <ClInclude Include="ql\pricingengines\swap\treeswapengine.hpp">
@@ -3097,6 +3154,9 @@
       <Filter>time\daycounters</Filter>
     </ClInclude>
     <ClInclude Include="ql\time\daycounters\thirty365.hpp">
+      <Filter>time\daycounters</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\time\daycounters\weighted.hpp">
       <Filter>time\daycounters</Filter>
     </ClInclude>
     <ClInclude Include="ql\legacy\all.hpp">
@@ -3523,6 +3583,9 @@
       <Filter>termstructures\volatility</Filter>
     </ClInclude>
     <ClInclude Include="ql\pricingengines\swaption\gaussian1dswaptionengine.hpp">
+      <Filter>pricingengines\swaption</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\pricingengines\swaption\gaussian2dnonstandardswaptionengine.hpp">
       <Filter>pricingengines\swaption</Filter>
     </ClInclude>
     <ClInclude Include="ql\termstructures\volatility\swaption\gaussian1dswaptionvolatility.hpp">
@@ -4104,6 +4167,9 @@
     <ClInclude Include="ql\methods\finitedifferences\solvers\fdmblackscholessolver.hpp">
       <Filter>methods\finitedifferences\solvers</Filter>
     </ClInclude>
+    <ClInclude Include="ql\methods\finitedifferences\solvers\fdmblackscholesstripsolver.hpp">
+      <Filter>methods\finitedifferences\solvers</Filter>
+    </ClInclude>
     <ClInclude Include="ql\methods\finitedifferences\solvers\fdmhestonhullwhitesolver.hpp">
       <Filter>methods\finitedifferences\solvers</Filter>
     </ClInclude>
@@ -4326,7 +4392,31 @@
     <ClInclude Include="ql\termstructures\volatility\equityfx\noexceptlocalvolsurface.hpp">
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\parametriclocalvolsurface.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\parametricvoltermstructure.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
     <ClInclude Include="ql\termstructures\volatility\equityfx\piecewiseblackvariancesurface.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\puredividend.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\pwlpdfblackvolsurface.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\pwlpdflocalvolsurface.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\pwlpdfsurface.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\scaledvoltermstructure.hpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\termstructures\volatility\equityfx\splitrhoessvi.hpp">
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClInclude>
     <ClInclude Include="ql\math\polynomialmathfunction.hpp">
@@ -4485,6 +4575,9 @@
     <ClInclude Include="ql\pricingengines\vanilla\fdblackscholesshoutengine.hpp">
       <Filter>pricingengines\vanilla</Filter>
     </ClInclude>
+    <ClInclude Include="ql\pricingengines\vanilla\fdblackscholesstripengine.hpp">
+      <Filter>pricingengines\vanilla</Filter>
+    </ClInclude>
     <ClInclude Include="ql\methods\finitedifferences\utilities\fdmshoutloginnervaluecalculator.hpp">
       <Filter>methods\finitedifferences\utilities</Filter>
     </ClInclude>
@@ -4516,6 +4609,9 @@
       <Filter>pricingengines\vanilla</Filter>
     </ClInclude>
     <ClInclude Include="ql\pricingengines\vanilla\vnbinomialengine.hpp">
+      <Filter>pricingengines\vanilla</Filter>
+    </ClInclude>
+    <ClInclude Include="ql\pricingengines\vanilla\vntrinomiallocalvolengine.hpp">
       <Filter>pricingengines\vanilla</Filter>
     </ClInclude>
     <ClInclude Include="ql\models\equity\hestonslvfdmmodel.hpp">
@@ -4976,6 +5072,9 @@
     <ClCompile Include="ql\instruments\quantovanillaoption.cpp">
       <Filter>instruments</Filter>
     </ClCompile>
+    <ClCompile Include="ql\instruments\rangeaccrualswap.cpp">
+      <Filter>instruments</Filter>
+    </ClCompile>
     <ClCompile Include="ql\instruments\simplechooseroption.cpp">
       <Filter>instruments</Filter>
     </ClCompile>
@@ -5050,6 +5149,9 @@
     </ClCompile>
     <ClCompile Include="ql\instruments\bonds\zerocouponbond.cpp">
       <Filter>instruments\bonds</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\instruments\callablerangeaccrualswap.cpp">
+      <Filter>instruments</Filter>
     </ClCompile>
     <ClCompile Include="ql\math\abcdmathfunction.cpp">
       <Filter>math</Filter>
@@ -5639,6 +5741,12 @@
     <ClCompile Include="ql\models\shortrate\twofactormodels\g2.cpp">
       <Filter>models\shortrate\twofactorsmodels</Filter>
     </ClCompile>
+    <ClCompile Include="ql\models\shortrate\twofactormodels\gaussian2dmodel.cpp">
+      <Filter>models\shortrate\twofactorsmodels</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\models\shortrate\twofactormodels\gsr2.cpp">
+      <Filter>models\shortrate\twofactorsmodels</Filter>
+    </ClCompile>
     <ClCompile Include="ql\models\volatility\constantestimator.cpp">
       <Filter>models\volatility</Filter>
     </ClCompile>
@@ -5747,13 +5855,58 @@
     <ClCompile Include="ql\termstructures\volatility\equityfx\blackvoltimeextrapolation.cpp">
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\bsplinevariancesurface.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\dualwingessvi.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\essvihelpers.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\essvilocalvolsurface.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\essvivoltermstructure.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\eventvollocalvoltermstructure.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
     <ClCompile Include="ql\termstructures\volatility\equityfx\localvolsurface.cpp">
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClCompile>
     <ClCompile Include="ql\termstructures\volatility\equityfx\localvoltermstructure.cpp">
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\mixedspotlocalvoltermstructure.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\mixedspotvoltermstructure.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\parametriclocalvolsurface.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\parametricvoltermstructure.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
     <ClCompile Include="ql\termstructures\volatility\equityfx\piecewiseblackvariancesurface.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\puredividend.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\pwlpdfblackvolsurface.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\pwlpdflocalvolsurface.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\pwlpdfsurface.cpp">
+      <Filter>termstructures\volatility\equityfx</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\termstructures\volatility\equityfx\splitrhoessvi.cpp">
       <Filter>termstructures\volatility\equityfx</Filter>
     </ClCompile>
     <ClCompile Include="ql\termstructures\volatility\optionlet\constantoptionletvol.cpp">
@@ -5898,6 +6051,9 @@
       <Filter>currencies</Filter>
     </ClCompile>
     <ClCompile Include="ql\processes\batesprocess.cpp">
+      <Filter>processes</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\processes\blackscholeshwborrowprocess.cpp">
       <Filter>processes</Filter>
     </ClCompile>
     <ClCompile Include="ql\processes\blackscholesprocess.cpp">
@@ -6086,6 +6242,9 @@
     <ClCompile Include="ql\pricingengines\vanilla\mcamericanengine.cpp">
       <Filter>pricingengines\vanilla</Filter>
     </ClCompile>
+    <ClCompile Include="ql\pricingengines\vanilla\mcamericanhwborrowengine.cpp">
+      <Filter>pricingengines\vanilla</Filter>
+    </ClCompile>
     <ClCompile Include="ql\pricingengines\vanilla\mcdigitalengine.cpp">
       <Filter>pricingengines\vanilla</Filter>
     </ClCompile>
@@ -6179,6 +6338,9 @@
     <ClCompile Include="ql\pricingengines\bond\discretizedconvertible.cpp">
       <Filter>pricingengines\bond</Filter>
     </ClCompile>
+    <ClCompile Include="ql\pricingengines\bond\g2copulabondoptionengine.cpp">
+      <Filter>pricingengines\bond</Filter>
+    </ClCompile>
     <ClCompile Include="ql\pricingengines\swap\discountingconstnotionalcrosscurrencyswapengine.cpp">
       <Filter>pricingengines\swap</Filter>
     </ClCompile>
@@ -6189,6 +6351,9 @@
       <Filter>pricingengines\swap</Filter>
     </ClCompile>
     <ClCompile Include="ql\pricingengines\swap\discretizedswap.cpp">
+      <Filter>pricingengines\swap</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\pricingengines\swap\gaussian1dcallablerangeaccrualengine.cpp">
       <Filter>pricingengines\swap</Filter>
     </ClCompile>
     <ClCompile Include="ql\pricingengines\swap\treeswapengine.cpp">
@@ -6444,6 +6609,9 @@
       <Filter>time\daycounters</Filter>
     </ClCompile>
     <ClCompile Include="ql\time\daycounters\thirty365.cpp">
+      <Filter>time\daycounters</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\time\daycounters\weighted.cpp">
       <Filter>time\daycounters</Filter>
     </ClCompile>
     <ClCompile Include="ql\legacy\libormarketmodels\lfmcovarparam.cpp">
@@ -6732,6 +6900,9 @@
       <Filter>termstructures\volatility</Filter>
     </ClCompile>
     <ClCompile Include="ql\pricingengines\swaption\gaussian1dswaptionengine.cpp">
+      <Filter>pricingengines\swaption</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\pricingengines\swaption\gaussian2dnonstandardswaptionengine.cpp">
       <Filter>pricingengines\swaption</Filter>
     </ClCompile>
     <ClCompile Include="ql\termstructures\volatility\swaption\gaussian1dswaptionvolatility.cpp">
@@ -7111,6 +7282,9 @@
     <ClCompile Include="ql\methods\finitedifferences\solvers\fdmblackscholessolver.cpp">
       <Filter>methods\finitedifferences\solvers</Filter>
     </ClCompile>
+    <ClCompile Include="ql\methods\finitedifferences\solvers\fdmblackscholesstripsolver.cpp">
+      <Filter>methods\finitedifferences\solvers</Filter>
+    </ClCompile>
     <ClCompile Include="ql\methods\finitedifferences\solvers\fdmhestonhullwhitesolver.cpp">
       <Filter>methods\finitedifferences\solvers</Filter>
     </ClCompile>
@@ -7423,6 +7597,9 @@
     <ClCompile Include="ql\pricingengines\vanilla\fdblackscholesshoutengine.cpp">
       <Filter>pricingengines\vanilla</Filter>
     </ClCompile>
+    <ClCompile Include="ql\pricingengines\vanilla\fdblackscholesstripengine.cpp">
+      <Filter>pricingengines\vanilla</Filter>
+    </ClCompile>
     <ClCompile Include="ql\methods\finitedifferences\utilities\fdmshoutloginnervaluecalculator.cpp">
       <Filter>methods\finitedifferences\utilities</Filter>
     </ClCompile>
@@ -7451,6 +7628,9 @@
       <Filter>pricingengines\vanilla</Filter>
     </ClCompile>
     <ClCompile Include="ql\pricingengines\vanilla\vnbinomialengine.cpp">
+      <Filter>pricingengines\vanilla</Filter>
+    </ClCompile>
+    <ClCompile Include="ql\pricingengines\vanilla\vntrinomiallocalvolengine.cpp">
       <Filter>pricingengines\vanilla</Filter>
     </ClCompile>
     <ClCompile Include="ql\models\equity\hestonslvfdmmodel.cpp">
