@@ -76,6 +76,15 @@ namespace QuantLib {
         with cash dividend drops.  Without cash dividends both modes are
         identical.
 
+        Settlement times: a pillar normally stands for its date's close.
+        pillarOffsets (years, one per pillar, empty for all zero) moves a
+        pillar earlier on its date: an A.M.-settled index option (SPX,
+        settling on the opening quotation) expires about 6.5 hours before
+        the P.M.-settled one (SPXW) of the same date, so the two are
+        distinct pillars, ordered by time, with the ordinary calendar
+        condition between them.  Pillar times must increase strictly; two
+        pillars may share a date only through different offsets.
+
         Intraday clock (setIntradayClock()): the surface is read from now,
         a quote, on the equity-option clock anchored on the previous
         session (IntradayActual365Fixed), and the front of its term
@@ -95,7 +104,8 @@ namespace QuantLib {
                                Handle<Quote> spot,
                                Handle<YieldTermStructure> riskFreeRate,
                                Handle<YieldTermStructure> dividendYield,
-                               const DayCounter& dc = Actual365Fixed());
+                               const DayCounter& dc = Actual365Fixed(),
+                               const std::vector<Time>& pillarOffsets = std::vector<Time>());
 
         //! With discrete dividends
         BSplineVarianceSurface(const Date& referenceDate,
@@ -107,7 +117,8 @@ namespace QuantLib {
                                Handle<YieldTermStructure> riskFreeRate,
                                Handle<YieldTermStructure> dividendYield,
                                DividendSchedule dividends,
-                               const DayCounter& dc = Actual365Fixed());
+                               const DayCounter& dc = Actual365Fixed(),
+                               const std::vector<Time>& pillarOffsets = std::vector<Time>());
 
         //! \name TermStructure interface
         //@{
@@ -130,6 +141,10 @@ namespace QuantLib {
         Real forward(Time t, Real spot) const;
         //! Pillar times, ascending.
         const std::vector<Time>& times() const { return times_; }
+        //! Pillar dates, in the order of times().
+        const std::vector<Date>& dates() const { return dates_; }
+        //! Each pillar's offset before its date's close (years), in the order of times().
+        const std::vector<Time>& pillarOffsets() const { return offsets_; }
         Natural degree() const { return degree_; }
         //! Total variance of pillar i at log-moneyness k (wings included).
         Real sliceTotalVariance(Size i, Real k) const;
@@ -211,7 +226,8 @@ namespace QuantLib {
         };
         void initialize(const std::vector<Date>& dates,
                         const std::vector<std::vector<Real>>& knots,
-                        const std::vector<std::vector<Real>>& coefficients);
+                        const std::vector<std::vector<Real>>& coefficients,
+                        const std::vector<Time>& offsets);
         std::array<Real, 3> inside(const Slice& s, Real k) const;
         std::array<Real, 3> derivatives(Size i, Real k) const;
         //! Bracketing pillars and weight for time t (lo == hi before the first pillar).
@@ -242,6 +258,7 @@ namespace QuantLib {
         DividendSchedule dividends_;
         bool pureDividend_ = false;
         std::vector<Date> dates_;
+        std::vector<Time> offsets_;
         std::vector<Real> atm_;  // pillar ATM total variance, w_i(0)
         // Intraday clock (setIntradayClock); times are years from the
         // reference date's midnight.

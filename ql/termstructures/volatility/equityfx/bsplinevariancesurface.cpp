@@ -118,10 +118,11 @@ namespace QuantLib {
         Handle<Quote> spot,
         Handle<YieldTermStructure> riskFreeRate,
         Handle<YieldTermStructure> dividendYield,
-        const DayCounter& dc)
+        const DayCounter& dc,
+        const std::vector<Time>& pillarOffsets)
     : BSplineVarianceSurface(referenceDate, dates, knots, coefficients, degree, std::move(spot),
                              std::move(riskFreeRate), std::move(dividendYield),
-                             DividendSchedule(), dc) {}
+                             DividendSchedule(), dc, pillarOffsets) {}
 
     BSplineVarianceSurface::BSplineVarianceSurface(
         const Date& referenceDate,
@@ -133,7 +134,8 @@ namespace QuantLib {
         Handle<YieldTermStructure> riskFreeRate,
         Handle<YieldTermStructure> dividendYield,
         DividendSchedule dividends,
-        const DayCounter& dc)
+        const DayCounter& dc,
+        const std::vector<Time>& pillarOffsets)
     : BlackVolatilityTermStructure(referenceDate, Calendar(), Following, dc), degree_(degree),
       spot_(std::move(spot)), riskFreeRate_(std::move(riskFreeRate)),
       dividendYield_(std::move(dividendYield)), dividends_(std::move(dividends)) {
@@ -144,36 +146,53 @@ namespace QuantLib {
         registerWith(spot_);
         registerWith(riskFreeRate_);
         registerWith(dividendYield_);
-        initialize(dates, knots, coefficients);
+        initialize(dates, knots, coefficients, pillarOffsets);
     }
 
     void BSplineVarianceSurface::initialize(const std::vector<Date>& dates,
                                             const std::vector<std::vector<Real>>& knots,
-                                            const std::vector<std::vector<Real>>& coefficients) {
+                                            const std::vector<std::vector<Real>>& coefficients,
+                                            const std::vector<Time>& offsets) {
         const Size N = dates.size();
         QL_REQUIRE(N > 0, "at least one pillar is required");
         QL_REQUIRE(knots.size() == N && coefficients.size() == N,
                    "dates (" << N << "), knots (" << knots.size() << ") and coefficients ("
                              << coefficients.size() << ") sizes differ");
+        QL_REQUIRE(offsets.empty() || offsets.size() == N,
+                   "pillar offsets (" << offsets.size() << ") must be empty or one per date ("
+                                      << N << ")");
+        std::vector<Time> off = offsets.empty() ? std::vector<Time>(N, 0.0) : offsets;
+        for (Size i = 0; i < N; ++i)
+            QL_REQUIRE(std::isfinite(off[i]) && off[i] >= 0.0 && off[i] < 1.0 / 365.0,
+                       "pillar " << dates[i] << ": offset " << off[i]
+                                 << " must be in [0, 1 day) before its date's close");
 
+        // Ordered by settlement time: an A.M. pillar precedes the P.M. one
+        // of its date.
+        std::vector<Time> raw(N);
+        for (Size i = 0; i < N; ++i)
+            raw[i] = dayCounter().yearFraction(referenceDate(), dates[i]) - off[i];
         std::vector<Size> order(N);
         std::iota(order.begin(), order.end(), Size(0));
-        std::sort(order.begin(), order.end(),
-                  [&dates](Size a, Size b) { return dates[a] < dates[b]; });
+        std::sort(order.begin(), order.end(), [&raw](Size a, Size b) { return raw[a] < raw[b]; });
 
         const Size p = degree_;
         times_.resize(N);
         slices_.resize(N);
         dates_.resize(N);
+        offsets_.resize(N);
         atm_.resize(N);
         for (Size i = 0; i < N; ++i) {
             const Size src = order[i];
-            const Time T = dayCounter().yearFraction(referenceDate(), dates[src]);
-            QL_REQUIRE(T > 0.0, "pillar " << dates[src] << " is not after the reference date");
+            const Time T = raw[src];
+            QL_REQUIRE(T > 0.0, "pillar " << dates[src] << " (offset " << off[src]
+                                          << ") is not after the reference date");
             QL_REQUIRE(i == 0 || T > times_[i - 1],
-                       "duplicate or non-increasing pillar at " << dates[src]);
+                       "duplicate or non-increasing pillar at " << dates[src] << " (offset "
+                                                                << off[src] << ")");
             times_[i] = T;
             dates_[i] = dates[src];
+            offsets_[i] = off[src];
 
             const std::vector<Real>& U = knots[src];
             const std::vector<Real>& c = coefficients[src];
@@ -344,7 +363,7 @@ namespace QuantLib {
                                                << sessionClose);
         // Pillars on fit-relative time: each date's close less the fit instant.
         for (Size i = 0; i < dates_.size(); ++i) {
-            times_[i] = (dates_[i] - referenceDate()) / 365.0 + close - fitTime;
+            times_[i] = (dates_[i] - referenceDate()) / 365.0 + close - fitTime - offsets_[i];
             QL_REQUIRE(times_[i] > 0.0, "setIntradayClock: pillar " << dates_[i]
                                                                     << " is not after the fit");
         }

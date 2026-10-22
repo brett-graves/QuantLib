@@ -13,6 +13,7 @@ this_include_HEADERS = \
     blackvolsurfacedelta.hpp \
     blackvoltermstructure.hpp \
     bsplinevariancesurface.hpp \
+    shiftedtimeblackvol.hpp \
     blackvoltimeextrapolation.hpp \
     essvihelpers.hpp \
     essvivoltermstructure.hpp \
