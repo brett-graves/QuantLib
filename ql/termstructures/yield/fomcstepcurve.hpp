@@ -208,6 +208,16 @@ namespace QuantLib {
                  bool reuseJacobian = false);
         //! show the curves at parameters x (no refit)
         void show(const Array& x);
+        /*! install a solved fit without solving: show x and run the fit's
+            post-solve code on the quote Jacobian it last used, so the
+            residuals, covariance, dx/dq, node risk and cost are the stored
+            fit's bit for bit, and a later fit() reusing the Jacobian starts
+            where the stored one would. */
+        void restore(const Array& x,
+                     const Matrix& jacobian,
+                     const std::string& loss = "band",
+                     bool holdSynthetic = false,
+                     Size outerSteps = 0);
         /*! replace the targets' uncertainty bands (bp of rate, one per
             target, each positive), e.g. a live bid/ask; the next fit()
             weights and reports risk with them. The quote Jacobian does not
@@ -232,6 +242,11 @@ namespace QuantLib {
         Size outerSteps() const { return outerSteps_; }
 
       private:
+        void finish(const Array& x,
+                    Array e,
+                    const Matrix& Je,
+                    const std::string& loss,
+                    bool holdSynthetic);
         Array quoteErrorsBp(const Array& x);
         Matrix jacobianAt(const Array& x, const Array& e);
         Array solveLinear(const Array& x,

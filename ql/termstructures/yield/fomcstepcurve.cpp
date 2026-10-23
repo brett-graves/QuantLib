@@ -754,6 +754,37 @@ namespace QuantLib {
         QL_REQUIRE(converged, "FOMC-step fit did not converge in "
                                   << cfg.maxOuterSteps << " steps (last re-pricing off the "
                                   << "linear model by " << departure << " bp)");
+        finish(x, e, Je, loss, holdSynthetic);
+    }
+
+    void FomcStepFit::restore(const Array& x,
+                              const Matrix& jacobian,
+                              const std::string& loss,
+                              bool holdSynthetic,
+                              Size outerSteps) {
+        QL_REQUIRE(loss == "band" || loss == "quadratic",
+                   "FomcStepFit: loss must be 'band' or 'quadratic', got " << loss);
+        Size nT = helpers_.size(), n = param_->size();
+        QL_REQUIRE(x.size() == n, "FomcStepFit: " << x.size() << " parameters for " << n);
+        QL_REQUIRE(jacobian.rows() == nT && jacobian.columns() == n,
+                   "FomcStepFit: a " << jacobian.rows() << "x" << jacobian.columns()
+                                     << " quote Jacobian for " << nT << " targets and " << n
+                                     << " parameters");
+        // The quote errors at x, as the fit's last step measured them; the
+        // rest is the fit's own post-solve code on the stored Jacobian.
+        Array e = quoteErrorsBp(x);
+        outerSteps_ = outerSteps;
+        finish(x, e, jacobian, loss, holdSynthetic);
+    }
+
+    void FomcStepFit::finish(const Array& x,
+                             Array e,
+                             const Matrix& Je,
+                             const std::string& loss,
+                             bool holdSynthetic) {
+        const FomcStepCurveConfig& cfg = param_->config();
+        Size nT = helpers_.size(), n = param_->size();
+        Array hw(halfWidthsBp_.begin(), halfWidthsBp_.end());
 
         // Synthetic benchmarks take the fitted value: zero error, curve unchanged.
         if (!holdSynthetic)
